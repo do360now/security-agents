@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:ollama.com)",
+      "Skill(update-config)",
+      "Bash(domain:localhost,allowed-commands:[ollama,ps,df,free,uptime,journalctl,dmesg,systemctl,ss,grep,awk,sed,cat,head,tail,sort,uniq,wc,xargs,find,ls,mkdir,chmod,chown,rm,mv,cp,touch,test])",
+      "Read",
+      "Write",
+      "Edit",
+      "Grep",
+      "Glob"
+    ]
+  }
+}

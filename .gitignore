@@ -1,0 +1,20 @@
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Security panel outputs (generated, not versioned)
+/tmp/ai-security-panel/
+
+# Claude Code state
+.claude/.sessions/
+.claude/.transcripts/
+
+# Build artifacts
+node_modules/
+__pycache__/
+target/
+dist/
+build/
+.next/
