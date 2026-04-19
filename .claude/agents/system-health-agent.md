@@ -57,6 +57,36 @@ EOF
 )"
 ```
 
+## Behavioral Anomaly Monitoring
+
+### Monitored Agent Scopes
+
+| Agent | Expected Tools | Alert Threshold |
+|-------|----------------|-----------------|
+| security-agent | Read, Grep, Glob | Any Write, Edit, Bash attempt |
+| requirements-agent | Read, Write, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
+| risk-analysis-agent | Read, Write, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
+| solutions-agent | Read, Write, Edit, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
+| security-panel | Read, Write, Edit, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
+| maintenance-agent | Read, Write, Edit, Bash, Grep, Glob | None — full scope |
+| system-health-agent | Read, Grep, Bash, Glob | Any Write, Edit, WebFetch attempt |
+
+### Anomaly Detection Triggers
+
+1. **Tool scope violation**: An agent attempts to use a tool not in its expected scope
+2. **Advisor call rate anomaly**: >10 advisor calls in a single session without progress
+3. **File access outside domain**: Agent reads files outside `/home/cmc/git/claude/` without documented justification
+4. **Configuration modification**: Agent modifies `.claude/settings.local.json`
+5. **Unexpected model invocation**: Agent runs `ollama run` with a model not in `MODELS_ALLOWLIST.md`
+6. **Out-of-scope Bash command**: Bash command includes `curl`, `wget`, `python.*http`, `ruby.*http`, `base64.*http`
+
+### Alert Actions
+
+When anomaly detected:
+1. Log anomaly to `/tmp/ai-security-panel/anomaly-log.jsonl`
+2. Echo "ALERT: [agent] attempted [tool] — outside documented scope" to stderr
+3. Report to user immediately
+
 ## Guidelines
 
 - Report findings by severity: critical (data loss / service down imminent) > high (degraded performance) > medium > informational
