@@ -9,7 +9,10 @@
       "Edit",
       "Grep",
       "Glob",
-      "Bash(./validate-advisor-output.sh)"
+      "Bash(./validate-advisor-output.sh)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git log *)"
     ]
   }
 }
