@@ -97,6 +97,7 @@ echo "========================================"
 
 TOTAL_PASS=0
 TOTAL_FAIL=0
+TEST_COUNT=21
 
 run_test() {
     local name="$1"
@@ -200,10 +201,10 @@ fi
 
 # --- RT-013: Audit logging ---
 echo -n "  RT-013 Session Audit Logging ... "
-if grep -q "AGENT_LOGGING_SCHEMA\|audit.*log\|logging.*infrastructure" SECURITY_INCIDENT_RUNBOOK.md 2>/dev/null; then
+if test -f AGENT_LOGGING_SCHEMA.md && grep -q "90.*day\|retention\|tool_invocation\|advisor_call" AGENT_LOGGING_SCHEMA.md; then
     pass "PASS"; TOTAL_PASS=$((TOTAL_PASS+1))
 else
-    warn "not implemented (not blocking)"; TOTAL_FAIL=$((TOTAL_FAIL+1))
+    fail "FAIL"; TOTAL_FAIL=$((TOTAL_FAIL+1))
 fi
 
 # --- RT-014: Pipeline stage validation ---

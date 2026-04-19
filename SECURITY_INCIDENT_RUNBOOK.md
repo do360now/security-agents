@@ -119,6 +119,52 @@ git checkout -- .
 
 ---
 
+## Audit Logging Infrastructure
+
+**Schema**: `AGENT_LOGGING_SCHEMA.md`
+**Log file**: `/var/log/agent-audit/audit.jsonl`
+**Retention**: 90 days minimum
+**Setup**:
+```bash
+sudo mkdir -p /var/log/agent-audit
+sudo chmod 755 /var/log/agent-audit
+sudo touch /var/log/agent-audit/audit.jsonl
+sudo chmod 644 /var/log/agent-audit/audit.jsonl
+sudo chattr +a /var/log/agent-audit/audit.jsonl 2>/dev/null || echo "chattr requires root + ext4/xfs"
+```
+
+### Log entry types logged
+- `tool_invocation` — every Bash/Read/Write/Edit/Grep call
+- `advisor_call_input` — advisor prompt submitted
+- `advisor_call_output` — advisor response received
+- `file_access` — file read/write/edit events
+- `anomaly_alert` — out-of-scope tool or behavior detected
+
+### Using the logger (for agents)
+```bash
+# Wrap commands with the logger
+./agent-logger.sh security-panel ps aux
+
+# Or source for function-based logging
+source ./agent-logger.sh
+log_tool_invocation "security-agent" "Bash" '{"command":"grep -r secret ."}'
+log_advisor_input "security-agent" "glm-5.1:cloud" 1234
+log_advisor_response "security-agent" "glm-5.1:cloud" 89 "1. Review the code..."
+log_file_access "security-agent" "/home/cmc/git/claude/.env" "read"
+log_anomaly "security-agent" "out_of_scope_tool" "Write" "Read,Grep" "high"
+```
+
+### Retention enforcement
+Configure `logrotate` via `/etc/logrotate.d/agent-audit` (see `AGENT_LOGGING_SCHEMA.md`).
+
+### What logs enable
+- Incident timeline reconstruction (which agent did what, when)
+- Advisor I/O auditing (what context was submitted to the model)
+- Anomaly detection review (alerts from system-health-agent)
+- Scope of compromise assessment after a confirmed incident
+
+---
+
 ## Quick Reference
 
 ```bash
