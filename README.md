@@ -28,18 +28,38 @@ Runs a full defensive security suite:
 
 ## Running Individual Agents
 
+All agents are invoked via the `Agent` tool with `subagent_type`:
+
 ```bash
 # Security panel (3-stage pipeline)
-agent subagent_type=security-panel
+Agent(subagent_type="security-panel", prompt="[threat/system description]")
 
 # Vulnerability scanning
-agent subagent_type=security-agent
+Agent(subagent_type="security-agent", prompt="Scan src/auth/ for injection and authz issues")
 
 # System diagnostics
-agent subagent_type=system-health-agent
+Agent(subagent_type="system-health-agent", prompt="CPU and memory overview — look for runaway processes")
 
 # Maintenance
-agent subagent_type=maintenance-agent
+Agent(subagent_type="maintenance-agent", prompt="Clean temp files and check for outdated dependencies")
+```
+
+## Advisor Pattern
+
+Each agent pairs a **fast executor** with a **stronger advisor** consulted at three moments:
+1. **After initial recon** — before committing to a hypothesis
+2. **When stuck** — approach not converging after retries
+3. **Before declaring done** — output on disk first (a timeout mid-advice must not lose work)
+
+Example advisor call from any agent:
+```bash
+ollama run <advisor-model>:cloud "$(cat <<'EOF'
+You are a security advisor. Respond in under 100 words, enumerated steps only.
+<task>[current task]</task>
+<transcript>[what the agent has found so far]</transcript>
+What should the agent do next?
+EOF
+)"
 ```
 
 ## Key Security Controls
@@ -60,6 +80,7 @@ agent subagent_type=maintenance-agent
 ```
 ├── setup-and-redteam.sh          # Bootstrap + run all tests
 ├── Makefile                      # make red-team-test / red-team-full
+├── agent-logger.sh               # Audit logging wrapper
 ├── SECURITY_INCIDENT_RUNBOOK.md # Kill switch + incident response
 ├── AGENT_LOGGING_SCHEMA.md      # Audit log format reference
 ├── MODELS_ALLOWLIST.md          # Approved Ollama models
@@ -96,6 +117,31 @@ All agents use Ollama **cloud** models (`:cloud` suffix — no local GPU):
 | `minimax-m2.7:cloud` | Alternative executor |
 | `ministral-3:14b-cloud` | System health executor |
 | `gemma4:31b-cloud` | System health advisor |
+
+## Security Panel (3-Stage Pipeline)
+
+Run via `Agent(subagent_type="security-panel")` with a threat/system description:
+
+```
+Stage 1: requirements-agent  →  REQUIREMENTS.md
+Stage 2: risk-analysis-agent →  RISK_ANALYSIS.md + RED_TEAM_TESTS.md
+Stage 3: solutions-agent   →  SOLUTIONS.md + MITIGATION_ROADMAP.md
+```
+
+Output goes to `/tmp/ai-security-panel/`. The panel models how an autonomous AI attacker (e.g., Mythos-class) would approach your system, then designs defenses accordingly.
+
+## Implementation Phases
+
+All mitigations from the AI security panel have been implemented:
+
+| Phase | Items | Status |
+|-------|-------|--------|
+| **P0** | Agent hash integrity (RT-001), model allowlist (RT-002), git signing (RT-006), bash domain restrictions (RT-008), advisor scoping (RT-003/004) | ✅ Complete |
+| **P1** | Config drift monitoring (RT-007/010), anomaly detection (RT-011), kill switch (RT-012), pipeline validation (RT-014), output durability (RT-015) | ✅ Complete |
+| **P2** | Inline script detection (RT-017), skill version pinning (RT-018), model provenance (RT-016), model diversity (RT-005/019) | ✅ Complete |
+| **P3** | Audit logging infrastructure (RT-013) | ✅ Complete |
+
+**22/22 red-team tests passing.**
 
 ## Requirements
 

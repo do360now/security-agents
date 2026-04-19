@@ -21,12 +21,12 @@ chmod +x setup-and-redteam.sh
 ./setup-and-redteam.sh
 
 # Run the security panel (3-stage pipeline)
-agent subagent_type=security-panel
+Agent(subagent_type="security-panel", prompt="[threat or system description]")
 
 # Run individual agents
-agent subagent_type=security-agent     # vulnerability scanning
-agent subagent_type=system-health-agent # diagnostics
-agent subagent_type=maintenance-agent  # updates & cleanup
+Agent(subagent_type="security-agent", prompt="Scan src/auth/ for injection and authz issues")
+Agent(subagent_type="system-health-agent", prompt="CPU and memory overview")
+Agent(subagent_type="maintenance-agent", prompt="Clean temp files, check dependencies")
 ```
 
 ## Key Files
@@ -35,12 +35,14 @@ agent subagent_type=maintenance-agent  # updates & cleanup
 |------|---------|
 | `setup-and-redteam.sh` | Bootstrap + run all 22 red-team tests |
 | `Makefile` | `make red-team-test` / `make red-team-full` |
+| `agent-logger.sh` | Audit logging wrapper (5 event types, JSON Lines) |
 | `SECURITY_INCIDENT_RUNBOOK.md` | Kill switch + incident response (<60s) |
-| `AGENT_LOGGING_SCHEMA.md` | Audit log format (JSON Lines, 90-day retention) |
+| `AGENT_LOGGING_SCHEMA.md` | Audit log format (schema, retention, rotation) |
 | `MODELS_ALLOWLIST.md` | Approved Ollama models with SHA-256 digests |
 | `COMMAND_SAFETY_GUIDELINES.md` | Safe Bash command construction rules |
 | `ADVISOR_OUTPUT_CONTRACT.md` | Valid/invalid advisor response patterns |
-| `verify-*.sh` scripts | Hash verification, model allowlist, config drift |
+| `SKILL_VERSION_POLICY.md` | Skill version pinning policy |
+| `verify-*.sh` | Hash verification, model allowlist, config drift, skill versions |
 
 ## Agent Roster
 
@@ -80,6 +82,17 @@ make red-team-full                # Verbose per-test output
 ```
 
 Current status: **22/22 PASS**
+
+## Implementation Phases
+
+All mitigations from the 3-stage AI security panel have been implemented:
+
+| Phase | Items | Status |
+|-------|-------|--------|
+| **P0** | Agent hash integrity (RT-001), model allowlist (RT-002), git signing (RT-006), bash domain restrictions (RT-008), advisor scoping (RT-003/004) | ✅ Complete |
+| **P1** | Config drift monitoring (RT-007/010), anomaly detection (RT-011), kill switch (RT-012), pipeline validation (RT-014), output durability (RT-015) | ✅ Complete |
+| **P2** | Inline script detection (RT-017), skill version pinning (RT-018), model provenance (RT-016), model diversity (RT-005/019) | ✅ Complete |
+| **P3** | Audit logging infrastructure (RT-013) | ✅ Complete |
 
 ## Security Controls
 
