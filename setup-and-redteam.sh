@@ -28,7 +28,7 @@ NC='\033[0m'
 info()    { echo -e "${NC}[INFO]  $*"; }
 pass()    { echo -e "${GREEN}[PASS]  $*"; }
 fail()    { echo -e "${RED}[FAIL]  $*"; }
-warn()    { echo -e "${YELLOW}[WARN]  $* $*"; }
+warn()    { echo -e "${YELLOW}[WARN]  ${*}" >&2; }
 
 # =====================================================================
 # Step 0: Detect — clone if needed, cd into it
