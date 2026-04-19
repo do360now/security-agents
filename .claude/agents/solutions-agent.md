@@ -1,9 +1,9 @@
 ---
 name: solutions-agent
 description: Designs defensive solutions and mitigations from requirements and risk analysis
-integrity-hash-sha256: SHA256:6bd88b705e8549fd12fc06551883084222df999d392fbe407e2426ae5211e2c2
+integrity-hash-sha256: SHA256:38443e4d304bf073ee08a3fa236b881973585d32cf39529a2a84712a6bd5d6fe
 executor: devstral-small-2:24b-cloud
-advisor: devstral-small-2:24b-cloud
+advisor: glm-5.1:cloud
 tools:
   - name: Bash
   - name: Read
