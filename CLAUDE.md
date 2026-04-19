@@ -1,135 +1,34 @@
-# CLAUDE.md — Security Agents Repository
+# CLAUDE.md
 
-This repository contains a defensive AI security team built with Claude Code and Ollama cloud models.
+Project-specific guidance for Claude Code agents working in this repository.
 
-## What This Is
+## System Overview
 
-A hardened multi-agent security system using Anthropic's **advisor pattern** (fast executor + strong advisor) with open-weight Ollama models. The system implements:
+This is a defensive AI security team built with Claude Code + Ollama cloud models. It uses an advisor pattern (fast executor + strong advisor) with defense-in-depth controls. All 22 red-team tests pass.
 
-- **7 specialized agents** for security, health, maintenance, and panel operations
-- **3-stage AI security panel** (requirements → risk analysis → solutions)
-- **22 automated red-team tests** (all passing)
-- **Defense-in-depth controls** against AI-capable attackers (Mythos-class)
-
-## Quick Start
-
-```bash
-# Clone and run the full red-team test suite
-git clone https://github.com/do360now/security-agents.git
-cd security-agents
-chmod +x setup-and-redteam.sh
-./setup-and-redteam.sh
-
-# Run the security panel (3-stage pipeline)
-Agent(subagent_type="security-panel", prompt="[threat or system description]")
-
-# Run individual agents
-Agent(subagent_type="security-agent", prompt="Scan src/auth/ for injection and authz issues")
-Agent(subagent_type="system-health-agent", prompt="CPU and memory overview")
-Agent(subagent_type="maintenance-agent", prompt="Clean temp files, check dependencies")
-```
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `setup-and-redteam.sh` | Bootstrap + run all 22 red-team tests |
-| `Makefile` | `make red-team-test` / `make red-team-full` |
-| `agent-logger.sh` | Audit logging wrapper (5 event types, JSON Lines) |
-| `SECURITY_INCIDENT_RUNBOOK.md` | Kill switch + incident response (<60s) |
-| `AGENT_LOGGING_SCHEMA.md` | Audit log format (schema, retention, rotation) |
-| `MODELS_ALLOWLIST.md` | Approved Ollama models with SHA-256 digests |
-| `COMMAND_SAFETY_GUIDELINES.md` | Safe Bash command construction rules |
-| `ADVISOR_OUTPUT_CONTRACT.md` | Valid/invalid advisor response patterns |
-| `SKILL_VERSION_POLICY.md` | Skill version pinning policy |
-| `verify-*.sh` | Hash verification, model allowlist, config drift, skill versions |
-
-## Agent Roster
-
-| Agent | Executor | Advisor | Role |
-|-------|----------|---------|------|
-| `security-agent` | devstral-small-2:24b | devstral-2:123b | Vulnerability scanning, code review |
-| `system-health-agent` | ministral-3:14b | gemma4:31b | Process/resource diagnostics |
-| `maintenance-agent` | minimax-m2.5 | devstral-2:123b | Updates, cleanup, optimization |
-| `requirements-agent` | devstral-2:123b | glm-5.1 | Generate security requirements |
-| `risk-analysis-agent` | glm-5.1 | devstral-2:123b | Attack vectors + red-team tests |
-| `solutions-agent` | devstral-small-2:24b | glm-5.1 | Mitigation design |
-| `security-panel` | devstral-2:123b | devstral-small-2:24b | 3-stage pipeline orchestrator |
-
-All models are Ollama **cloud** models (`:cloud` suffix) — no local GPU required.
-
-## Architecture
+## Project Structure
 
 ```
-                    security-panel (orchestrator)
-                           |
-           +---------------+----------------+
-           |               |                |
-    requirements-agent  risk-analysis  solutions-agent
-    (Stage 1)          -agent (Stage 2)  (Stage 3)
-           |               |                |
-           v               v                v
-    REQUIREMENTS.md   RISK_ANALYSIS.md  SOLUTIONS.md
-                      RED_TEAM_TESTS.md MITIGATION_ROADMAP
+tutorial/           Learning-oriented guides
+how-to/             Task-oriented guides
+reference/          Technical reference
+explanation/        Deep dives on design decisions
+.claude/agents/     Agent definitions
 ```
 
-## Red-Team Test Suite
+Full project documentation is in `README.md`.
 
-```bash
-./setup-and-redteam.sh           # Full suite (all 22 tests)
-make red-team-test                # Quick pass/fail summary
-make red-team-full                # Verbose per-test output
-```
+## Agent Frontmatter Contract
 
-Current status: **22/22 PASS**
+All agents in `.claude/agents/` must have this frontmatter:
 
-## Implementation Phases
-
-All mitigations from the 3-stage AI security panel have been implemented:
-
-| Phase | Items | Status |
-|-------|-------|--------|
-| **P0** | Agent hash integrity (RT-001), model allowlist (RT-002), git signing (RT-006), bash domain restrictions (RT-008), advisor scoping (RT-003/004) | ✅ Complete |
-| **P1** | Config drift monitoring (RT-007/010), anomaly detection (RT-011), kill switch (RT-012), pipeline validation (RT-014), output durability (RT-015) | ✅ Complete |
-| **P2** | Inline script detection (RT-017), skill version pinning (RT-018), model provenance (RT-016), model diversity (RT-005/019) | ✅ Complete |
-| **P3** | Audit logging infrastructure (RT-013) | ✅ Complete |
-
-## Security Controls
-
-- SHA-256 frontmatter integrity hashes on all agents
-- Model allowlist with digest verification
-- Bash domain-restricted to localhost
-- Advisor I/O scoped via `cat <<'EOF'` (no variable expansion)
-- Advisor output validated against documented contract
-- Config drift monitoring on every session start
-- Inline script detection (CI/CD check)
-- Skill version pinning (no floating versions)
-- Kill switch runbook (<60s termination)
-- Audit logging infrastructure (JSON Lines, 90-day retention)
-
-## Advisor Pattern Rules
-
-1. **After initial recon** — after file reads and listing commands, before substantive work
-2. **When stuck** — recurring errors, approach not converging
-3. **Before declaring done** — output on disk first, so a timeout mid-advice doesn't lose work
-
-## Permissions
-
-Agents require these permissions in `.claude/settings.local.json`:
-- `Bash(domain:localhost,allowed-commands:[...])` — restricted to localhost
-- `Read`, `Write`, `Edit`, `Grep`, `Glob` — file operations
-- `WebFetch(domain:ollama.com)` — advisor model calls only
-
-## Adding Agents
-
-Frontmatter contract:
 ```yaml
 ---
-name: my-agent
+name: <name>
 description: One-line purpose
-integrity-hash-sha256: SHA256:<run ./verify-all-agents.sh after creating>
-executor: <model-name>:cloud
-advisor: <different-model-name>:cloud
+integrity-hash-sha256: SHA256:<hash>
+executor: <model>:cloud
+advisor: <different-model>:cloud
 tools:
   - name: Bash
   - name: Read
@@ -137,4 +36,53 @@ skills: []
 ---
 ```
 
-Body should specify: responsibilities, advisor-call timing, and example `ollama run` prompts.
+**Rules:**
+- Executor and advisor must be different models
+- Compute the hash: `./verify-all-agents.sh`
+- Skills must be version-pinned (no `latest`)
+
+## Advisor Pattern
+
+Call the advisor at three moments:
+1. After initial recon (before committing to a plan)
+2. When stuck (approach not converging)
+3. Before declaring done (output on disk first)
+
+Use `cat <<'EOF'` for advisor calls — never `cat <<EOF` (variable expansion leaks).
+
+Validate advisor output: `./validate-advisor-output.sh`
+
+## Security Controls
+
+- Run `./verify-all-agents.sh` after modifying any agent
+- Bash is domain-restricted to localhost in `.claude/settings.local.json`
+- Advisor output is validated against `ADVISOR_OUTPUT_CONTRACT.md`
+- Config drift is monitored: `./detect-config-drift.sh` on session start
+- No floating skill versions — use exact versions or commit hashes
+
+## Key Commands
+
+```bash
+./setup-and-redteam.sh          # Run all 22 tests
+./verify-all-agents.sh          # Verify agent hashes
+./detect-config-drift.sh        # Check for config tampering
+./validate-advisor-output.sh    # Validate advisor response
+```
+
+## Adding New Agents
+
+1. Create `.claude/agents/<name>-agent.md` with frontmatter
+2. Compute hash: `./verify-all-agents.sh`
+3. Update the `integrity-hash-sha256` field with the computed hash
+4. Verify: `./verify-all-agents.sh` passes
+
+## Permissions
+
+Configured in `.claude/settings.local.json`. Changes trigger drift alerts.
+
+## See Also
+
+- `README.md` — Full project overview
+- `tutorial/getting-started.md` — Step-by-step introduction
+- `how-to/add-new-agent.md` — Detailed agent creation guide
+- `explanation/advisor-pattern.md` — Why the advisor pattern works
