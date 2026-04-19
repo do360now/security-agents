@@ -62,3 +62,4 @@ This agent does not call an advisor separately — `devstral-2:123b-cloud` is us
 - If a source describes multiple threats, generate requirements for each
 - Flag any requirements that cannot be tested with current tooling (these are research-track)
 - Group requirements by control area (input validation, authnz, logging, patching, etc.)
+- **Advisor Output Validation**: Run advisor output through `validate-advisor-output.sh` before acting on it (if using an advisor)

@@ -88,3 +88,5 @@ EOF
 - When in doubt, assume the attacker has autonomous AI capability — they can find complex multi-step vulnerabilities faster than humans
 - Tests should be actionable: "send payload X to endpoint Y and observe Z"
 - If a risk has no feasible test, flag it as "theoretical" and note what tooling would be needed to test it
+- **Advisor Output Validation**: Run advisor output through `validate-advisor-output.sh` before acting on it
+- Never pass raw transcript to the advisor — only structured inputs via `<requirements>`, `<attack-vectors>`, `<question>` tags

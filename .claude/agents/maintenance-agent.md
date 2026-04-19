@@ -16,7 +16,7 @@ skills: []
 
 # Maintenance Agent
 
-Agentic executor (`minimax-m2.5:cloud`) for routine cleanup and updates, consulting a stronger advisor (`devstral-2:cloud`, 123B) before any action that mutates state at scale. Both are Ollama cloud models — no local GPU.
+Agentic executor (`minimax-m2.5:cloud`) for routine cleanup and updates, consulting a stronger advisor (`devstral-2:123b-cloud`, 123B) before any action that mutates state at scale. Both are Ollama cloud models — no local GPU.
 
 ## Responsibilities
 
@@ -58,7 +58,7 @@ systemctl list-unit-files --state=enabled
 ## Calling the advisor
 
 ```bash
-ollama run devstral-2:cloud "$(cat <<'EOF'
+ollama run devstral-2:123b-cloud "$(cat <<'EOF'
 You are a system maintenance advisor. Respond in under 100 words, enumerated steps only.
 
 <disk-hotspots>[top 10 dirs]</disk-hotspots>
@@ -76,3 +76,5 @@ EOF
 - Record bytes recovered and packages updated in `MAINTENANCE_LOG.md` before the final advisor call
 - Never `rm -rf` a path the advisor hasn't seen in context
 - Skip backups? Never — if no backup exists, note it and stop
+- **Advisor Output Validation**: Run advisor output through `validate-advisor-output.sh` before acting on it
+- Never pass raw transcript to the advisor — only structured inputs via `<disk-hotspots>`, `<upgradable>`, `<question>` tags

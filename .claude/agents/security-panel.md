@@ -78,6 +78,21 @@ EOF
 
 ### Step 2 — Launch the Risk Analysis Agent
 ```bash
+# Validate Stage 1 output exists and has content BEFORE running Stage 2
+if [[ ! -f /tmp/ai-security-panel/REQUIREMENTS.md ]]; then
+    echo "ERROR: /tmp/ai-security-panel/REQUIREMENTS.md not found. Stage 1 must complete before Stage 2." >&2
+    exit 1
+fi
+if [[ ! -s /tmp/ai-security-panel/REQUIREMENTS.md ]]; then
+    echo "ERROR: /tmp/ai-security-panel/REQUIREMENTS.md is empty. Stage 1 failed to produce output." >&2
+    exit 1
+fi
+if ! grep -qE '^## REQ-[0-9]+:' /tmp/ai-security-panel/REQUIREMENTS.md; then
+    echo "ERROR: /tmp/ai-security-panel/REQUIREMENTS.md does not contain expected REQ-* format" >&2
+    exit 1
+fi
+echo "Stage 1 input validated. Proceeding to Stage 2."
+
 # Stage 2: Risk analysis + test generation
 ollama run glm-5.1:cloud "$(cat <<'EOF'
 You are the risk-analysis-agent. Analyze requirements for attack vectors and generate red-team tests.
@@ -102,6 +117,23 @@ EOF
 
 ### Step 3 — Launch the Solutions Agent
 ```bash
+# Validate Stage 2 outputs exist BEFORE running Stage 3
+for artifact in RISK_ANALYSIS.md RED_TEAM_TESTS.md; do
+    if [[ ! -f /tmp/ai-security-panel/$artifact ]]; then
+        echo "ERROR: /tmp/ai-security-panel/$artifact not found. Stage 2 must complete." >&2
+        exit 1
+    fi
+    if [[ ! -s /tmp/ai-security-panel/$artifact ]]; then
+        echo "ERROR: /tmp/ai-security-panel/$artifact is empty. Stage 2 failed." >&2
+        exit 1
+    fi
+done
+if ! grep -qE '^## RISK-[0-9]+:' /tmp/ai-security-panel/RISK_ANALYSIS.md; then
+    echo "ERROR: RISK_ANALYSIS.md does not contain expected RISK-* format" >&2
+    exit 1
+fi
+echo "Stage 2 input validated. Proceeding to Stage 3."
+
 # Stage 3: Design solutions
 ollama run devstral-small-2:24b-cloud "$(cat <<'EOF'
 You are the solutions-agent. Design defensive solutions that pass the red-team tests.
@@ -151,3 +183,6 @@ You can also invoke this panel using the Agent tool with subagent_type: "securit
 - If the target system is large, focus on highest-risk components first (entry points, auth, privileged code paths)
 - Iteration is encouraged: if Stage 3 identifies gaps, loop back to Stage 1 or 2
 - All findings should be written to disk before moving to the next stage — durable output is critical
+- **Advisor Output Validation**: Run advisor output through `validate-advisor-output.sh` before acting on it
+- **Output Durability (MANDATORY)**: Each stage MUST write its output to persistent storage BEFORE calling the advisor for the next stage
+- **Pipeline Stage Input Validation**: Before each stage, validate that prior stage output files exist and have expected schema

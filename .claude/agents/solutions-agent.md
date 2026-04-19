@@ -79,3 +79,5 @@ Uses `devstral-small-2:24b-cloud` for efficient, focused solution design.
 - Document what each solution does NOT protect against (honest scope)
 - For Mythos-class threats: prioritize patch velocity and exploitability reduction
 - Solutions should be implementable by a competent engineer without deep context — write for the future maintainer who wasn't in this meeting
+- **Advisor Output Validation**: Run advisor output through `validate-advisor-output.sh` before acting on it
+- Never pass raw transcript to the advisor — only structured inputs via `<risks>`, `<constraints>`, `<question>` tags
