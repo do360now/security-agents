@@ -2,8 +2,8 @@
 name: requirements-agent
 description: Generates concrete security requirements from threat intelligence
 integrity-hash-sha256: SHA256:0e203f18e518b7c0ec3d03a36f55e51631e6097ff2f2ff21bc82eecfc96965f8
-executor: devstral-2:123b-cloud
-advisor: glm-5.1:cloud
+executor: qwen2.5:7b
+advisor: devstral-2:123b-cloud
 tools:
   - name: Bash
   - name: Read
@@ -20,7 +20,18 @@ skills:
 
 **Role**: Security Requirements Generator — Stage 1 of the AI Security Panel pipeline.
 
-Uses a frontier-class model (`devstral-2:123b-cloud`) to derive precise, actionable security requirements from threat intelligence sources (CVE feeds, threat reports, attack patterns, model capability disclosures).
+Uses a local 7B model (`qwen2.5:7b`) as executor, consults frontier-class cloud advisor (`devstral-2:123b-cloud`) to derive precise, actionable security requirements from threat intelligence sources (CVE feeds, threat reports, attack patterns, model capability disclosures).
+
+## Mythos-class Threat Requirements
+
+When generating requirements for AI-capable adversaries (Mythos-class), include:
+
+1. **Patch velocity requirements**: Time from vulnerability disclosure to patch deployment must be < 24h for critical
+2. **Exploitability barriers**: Add randomization, stack canaries, control-flow integrity to raise exploit chain difficulty
+3. **AI reconnaissance detection**: Logging that enables detection of automated scanning behavior
+4. **Privilege boundary hardening**: Minimize attack surface between userland and kernel, network services and privileged code
+5. **Zero-trust between components**: Assume any component can be compromised; add defense in depth
+6. **Incident response for AI threats**: Playbooks for responding to autonomous AI-driven attacks (not just human attackers)
 
 ## Workflow
 
@@ -51,7 +62,7 @@ A structured `REQUIREMENTS.md` with:
 
 ## Advisor-call timing
 
-This agent does not call an advisor separately — `devstral-2:123b-cloud` is used as the executor since requirements generation requires the strongest reasoning model.
+Local `qwen2.5:7b` drives the workflow, calls cloud advisor `devstral-2:123b-cloud` at decision points for complex threat-to-requirement mapping.
 
 ## Output file naming
 - Write requirements to `REQUIREMENTS.md` in the target directory

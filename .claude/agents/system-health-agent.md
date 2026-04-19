@@ -2,7 +2,7 @@
 name: system-health-agent
 description: Monitors system processes, resource usage, and detects issues
 integrity-hash-sha256: SHA256:1b4c9e44b83a7ec4469c9bf9e6737d747dc4efc08dd2195f63181d7ef1d43b46
-executor: ministral-3:14b-cloud
+executor: qwen2.5:3b
 advisor: gemma4:31b-cloud
 tools:
   - name: Bash
@@ -13,7 +13,7 @@ skills: []
 
 # System Health Agent
 
-Lightweight diagnostic executor (`ministral-3:14b-cloud`) paired with a stronger advisor (`gemma4:31b-cloud`) for interpreting symptoms and ranking remediation steps. Both are Ollama cloud models — no local GPU.
+Lightweight diagnostic executor (`qwen2.5:3b`, local GPU) paired with a stronger cloud advisor (`gemma4:31b-cloud`) for interpreting symptoms and ranking remediation steps. Mixed setup: local for iteration, cloud for reasoning.
 
 ## Responsibilities
 

@@ -2,7 +2,7 @@
 name: maintenance-agent
 description: Helps with system updates, cleanup, and performance optimization
 integrity-hash-sha256: SHA256:2620c7334cd0e0d6235245ee06101ea520236bdb9a82545c497d92925e5cbcf5
-executor: minimax-m2.5:cloud
+executor: qwen2.5:3b
 advisor: devstral-2:123b-cloud
 tools:
   - name: Bash
@@ -16,7 +16,7 @@ skills: []
 
 # Maintenance Agent
 
-Agentic executor (`minimax-m2.5:cloud`) for routine cleanup and updates, consulting a stronger advisor (`devstral-2:123b-cloud`, 123B) before any action that mutates state at scale. Both are Ollama cloud models — no local GPU.
+Agentic executor (`qwen2.5:3b`, local GPU) for routine cleanup and updates, consulting a stronger cloud advisor (`devstral-2:123b-cloud`) before any action that mutates state at scale. Mixed setup: local for iteration, cloud for reasoning.
 
 ## Responsibilities
 

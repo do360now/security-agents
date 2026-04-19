@@ -2,7 +2,7 @@
 name: solutions-agent
 description: Designs defensive solutions and mitigations from requirements and risk analysis
 integrity-hash-sha256: SHA256:6bd88b705e8549fd12fc06551883084222df999d392fbe407e2426ae5211e2c2
-executor: devstral-small-2:24b-cloud
+executor: qwen2.5:3b
 advisor: devstral-small-2:24b-cloud
 tools:
   - name: Bash
@@ -49,6 +49,11 @@ Takes requirements (Stage 1) and risk analysis + tests (Stage 2) and produces: (
    - Rate limiting and anomaly detection on API endpoints used by AI systems
    - Logging sufficient to detect AI-driven reconnaissance
    - Patch velocity: reduce time from vulnerability discovery to patch deployment
+   - **AI reconnaissance detection**: Monitor for:
+     - High-frequency API probing (thousands of requests/hour from single source)
+     - Unusual request patterns (sequential parameter fuzzing, exhaustive enum)
+     - Model-assisted crawling (AI scans entire attack surface systematically)
+     - Non-human timing (requests at exact intervals, no "reading time" between pages)
 
 4. **Implementation roadmap**: Prioritize solutions by:
    - Risk reduction (biggest impact first)
@@ -71,7 +76,7 @@ Also produces `MITIGATION_ROADMAP.md` — prioritized implementation plan.
 
 ## Advisor-call timing
 
-Uses `devstral-small-2:24b-cloud` for efficient, focused solution design.
+Uses local `qwen2.5:3b` as executor, calls cloud advisor `devstral-small-2:24b-cloud` for solution design.
 
 ## Guidelines
 - Prefer fixes that eliminate the vulnerability class, not just the instance

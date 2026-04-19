@@ -1,5 +1,17 @@
 # CLAUDE.md — Agents Directory
 
+**Context: The Mythos Era (April 2026)**
+
+Claude Mythos Preview represents a watershed moment for security. Frontier AI models can now autonomously find and exploit zero-day vulnerabilities at scale:
+- 181 working Firefox exploits in internal benchmarks
+- Full control flow hijack on 10 fully-patched targets
+- 99%+ of findings were unpatched vulnerabilities
+- Autonomous exploit development without human intervention
+
+These agents are designed to help defenders respond to AI-capable adversaries.
+
+---
+
 These agents implement the **advisor pattern** using open-weight Ollama models: a fast executor handles most of the work, and a stronger advisor is consulted at strategic moments for plans and course corrections.
 
 ## The advisor pattern
@@ -39,19 +51,19 @@ For long transcripts, pipe via stdin: `ollama run <model>:cloud < prompt.txt`.
 
 ## Agents
 
-| Agent | Executor | Advisor | Use |
-|-------|----------|---------|-----|
-| `security-agent` | `devstral-small-2:24b-cloud` | `glm-5.1:cloud` | Vulnerability scanning, code review |
-| `system-health-agent` | `ministral-3:14b-cloud` | `gemma4:31b-cloud` | Process/resource diagnostics |
-| `maintenance-agent` | `minimax-m2.5:cloud` | `devstral-2:123b-cloud` | Updates, cleanup, optimization |
-| `requirements-agent` | `devstral-2:123b-cloud` | `devstral-2:123b-cloud` | Generate security requirements from threat intel |
-| `risk-analysis-agent` | `glm-5.1:cloud` | `glm-5.1:cloud` | Red-team test generation and risk scoring |
-| `solutions-agent` | `devstral-small-2:24b-cloud` | `devstral-small-2:24b-cloud` | Defensive solution design and mitigation |
-| `security-panel` | `devstral-2:123b-cloud` | `devstral-2:123b-cloud` | Orchestrates full 3-stage AI security pipeline |
+| Agent | Executor (local) | Advisor (cloud) | Use |
+|-------|------------------|-----------------|-----|
+| `security-agent` | `qwen2.5:3b` | `devstral-small-2:24b-cloud` | Vulnerability scanning, code review |
+| `system-health-agent` | `qwen2.5:3b` | `gemma4:31b-cloud` | Process/resource diagnostics |
+| `maintenance-agent` | `qwen2.5:3b` | `devstral-2:123b-cloud` | Updates, cleanup, optimization |
+| `requirements-agent` | `qwen2.5:7b` | `devstral-2:123b-cloud` | Generate security requirements from threat intel |
+| `risk-analysis-agent` | `qwen2.5:7b` | `glm-5.1:cloud` | Red-team test generation and risk scoring |
+| `solutions-agent` | `qwen2.5:3b` | `devstral-small-2:24b-cloud` | Defensive solution design and mitigation |
+| `security-panel` | `qwen2.5:7b` | `devstral-2:123b-cloud` | Orchestrates full 3-stage AI security pipeline |
 
-All models are Ollama **cloud** models (the `:cloud` suffix) — no local GPU required, inference runs on Ollama's servers. Claude Code itself is launched against one of these via `ollama launch claude --model <name>:cloud`. The executor/advisor split applies inside each agent's workflow: the executor drives the loop, the advisor is consulted via `ollama run <advisor>:cloud` at decision points.
+**Mixed setup**: Local models (GTX 1070 compatible) handle the execution loop, cloud models provide strong reasoning at decision points. The executor runs frequently (iteration, file ops, command execution), the advisor is called sparingly (planning, validation, complex reasoning).
 
-Substitute any cloud models you prefer — the pairing (small/fast executor, stronger advisor) matters more than exact names.
+Claude Code can be launched with either local or cloud models via `ollama launch claude --model <name>`. The executor drives the loop, the advisor is consulted via `ollama run <advisor>:cloud` at decision points.
 
 ## Invocation
 

@@ -2,13 +2,54 @@
 
 **Policy**: Only models with SHA-256 digests documented here may be referenced in agent configurations, Makefile, or invoked via `ollama run`/`ollama launch`.
 
-**Verification**: Run `./verify-model-digest.sh <model-name>:cloud` to verify digest against this allowlist.
+**Verification**: Run `./verify-model-digest.sh <model-name>` to verify digest against this allowlist.
 
 ---
 
 ## Approved Models
 
-### devstral-2:123b-cloud
+### Local Models (GTX 1070 compatible - 8GB VRAM)
+
+#### qwen2.5:3b
+- **Purpose**: Fast executor for security-agent, solutions-agent, system-health-agent, maintenance-agent
+- **Size**: 3B parameters (~2GB VRAM with Q4 quantization)
+- **Model ID**: `357c53fb659c` (verify via `ollama list`)
+- **Source**: Ollama library
+- **Added**: 2026-04-19
+
+#### qwen2.5:7b
+- **Purpose**: Main executor for requirements-agent (stronger reasoning)
+- **Size**: 7B parameters (~4GB VRAM with Q4_K_M quantization)
+- **Model ID**: `845dbda0ea48` (verify via `ollama list`)
+- **Source**: Ollama library
+- **Added**: 2026-04-19
+
+#### llama3.2:3b
+- **Purpose**: Alternative fast executor
+- **Size**: 3B parameters (~2GB VRAM)
+- **Model ID**: `a80c4f17acd5` (verify via `ollama list`)
+- **Source**: Ollama library
+- **Added**: 2026-04-19
+
+#### mistral:7b
+- **Purpose**: Alternative 7B executor
+- **Size**: 7B parameters (~4GB VRAM)
+- **Model ID**: `6577803aa9a0` (verify via `ollama list`)
+- **Source**: Ollama library
+- **Added**: 2026-04-19
+
+#### codellama:7b
+- **Purpose**: Code-focused executor (not yet pulled)
+- **Size**: 7B parameters (~4GB VRAM)
+- **Model ID**: `<run 'ollama list' after pull>`
+- **Source**: Ollama library
+- **Added**: 2026-04-19
+
+---
+
+### Cloud Models (advisors)
+
+#### devstral-2:123b-cloud
 - **Purpose**: Primary executor for requirements-agent, security-panel
 - **Digest (SHA-256)**: `<run 'ollama show devstral-2:123b-cloud' to obtain>`
 - **Source**: Ollama library

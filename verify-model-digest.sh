@@ -6,7 +6,7 @@
 set -euo pipefail
 
 MODEL="$1"
-ALLOWLIST="/home/cmc/git/claude/MODELS_ALLOWLIST.md"
+ALLOWLIST="/home/cmc/git/security-agents/MODELS_ALLOWLIST.md"
 
 if [[ ! -f "$ALLOWLIST" ]]; then
     echo "ERROR: Allowlist not found: $ALLOWLIST" >&2

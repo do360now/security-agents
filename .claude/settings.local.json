@@ -9,7 +9,11 @@
       "Edit",
       "Grep",
       "Glob",
-      "Bash(./validate-advisor-output.sh)"
+      "Bash(./validate-advisor-output.sh)",
+      "Bash(ollama pull *)",
+      "Bash(ollama show *)",
+      "Bash(ollama *)",
+      "WebFetch(domain:red.anthropic.com)"
     ]
   }
 }
