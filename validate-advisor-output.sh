@@ -7,9 +7,8 @@ set -euo pipefail
 
 OUTPUT=$(cat)
 
-# Check 1: Non-empty
 if [[ -z "$OUTPUT" ]]; then
-    echo "FAIL: Empty output" >&2
+    echo "FAIL: No input — Usage: cat advisor-output.txt | ./validate-advisor-output.sh" >&2
     exit 1
 fi
 

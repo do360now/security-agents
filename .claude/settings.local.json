@@ -12,7 +12,17 @@
       "Bash(./validate-advisor-output.sh)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(mkdir -p /tmp/ai-security-panel)",
+      "Bash(cat)",
+      "Bash(timeout 180 ollama run devstral-2:123b-cloud)",
+      "Bash(sed 's/\\\\x1b\\\\[[0-9;]*[a-zA-Z]//g; s/\\\\x1b[A//g; s/\\\\x1b\\\\[?.*[a-zA-Z]//g')",
+      "Read(//tmp/**)",
+      "Bash(openssl s_client -connect helloai.com:443 -tls1_2)",
+      "Bash(openssl s_client -connect helloai.com:443 -tls1_3)",
+      "Bash(nmap --script ssl-enum-ciphers -p 443 helloai.com)",
+      "Bash(grep -v \"^$\")",
+      "Bash(make red-team-full *)"
     ]
   }
 }
