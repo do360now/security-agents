@@ -22,7 +22,9 @@
       "Bash(openssl s_client -connect helloai.com:443 -tls1_3)",
       "Bash(nmap --script ssl-enum-ciphers -p 443 helloai.com)",
       "Bash(grep -v \"^$\")",
-      "Bash(make red-team-full *)"
+      "Bash(make red-team-full *)",
+      "Bash(ollama --version)",
+      "Bash(claude --version)"
     ]
   }
 }
