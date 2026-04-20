@@ -16,7 +16,12 @@
       "WebFetch(domain:red.anthropic.com)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(ip route *)",
+      "Bash(awk '{print $3}')",
+      "Bash(curl -s -I --connect-timeout 5 https://31.20.234.122/)",
+      "Bash(curl -s -I --connect-timeout 5 http://31.20.234.122/)",
+      "Bash(curl -s --connect-timeout 5 http://31.20.234.122/)"
     ]
   }
 }
