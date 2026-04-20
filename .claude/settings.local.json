@@ -21,7 +21,10 @@
       "Bash(awk '{print $3}')",
       "Bash(curl -s -I --connect-timeout 5 https://31.20.234.122/)",
       "Bash(curl -s -I --connect-timeout 5 http://31.20.234.122/)",
-      "Bash(curl -s --connect-timeout 5 http://31.20.234.122/)"
+      "Bash(curl -s --connect-timeout 5 http://31.20.234.122/)",
+      "Bash(curl -s --connect-timeout 5 http://192.168.1.5/)",
+      "Bash(git ls-files *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }
