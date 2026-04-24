@@ -1,7 +1,7 @@
 ---
 name: system-health-agent
 description: Monitors system processes, resource usage, and detects issues
-integrity-hash-sha256: SHA256:1b4c9e44b83a7ec4469c9bf9e6737d747dc4efc08dd2195f63181d7ef1d43b46
+integrity-hash-sha256: SHA256:dc30c1ddf1066e0cf52c119cd61f2a37c877d45e30d9d16954eeb31c6e4b5101
 executor: qwen2.5:3b
 advisor: gemma4:31b-cloud
 tools:

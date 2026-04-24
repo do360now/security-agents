@@ -109,7 +109,22 @@ git checkout -- .
 
 ---
 
-## Post-Incident
+## Audit Logging Infrastructure
+
+**AGENT_LOGGING_SCHEMA**: All agent sessions log to `/tmp/ai-security-panel/session-log.jsonl` with the following fields:
+- `timestamp` (ISO 8601)
+- `agent` (name from frontmatter)
+- `action` (tool invoked)
+- `target` (file/path/endpoint)
+- `advisorCalled` (boolean)
+- `validationPassed` (boolean — for advisor outputs)
+
+Session logs are rotation-limited to 100MB max; older logs are archived to `/tmp/ai-security-panel/archive/`.
+
+**Audit Log Retention**: 90 days minimum for compliance with EU AI Act (Aug 2026) and NIST AI RMF adversarial testing requirements.
+
+---
+
 
 - Conduct full retrospective within 48 hours
 - Update this runbook with lessons learned

@@ -1,7 +1,7 @@
 ---
 name: maintenance-agent
 description: Helps with system updates, cleanup, and performance optimization
-integrity-hash-sha256: SHA256:2620c7334cd0e0d6235245ee06101ea520236bdb9a82545c497d92925e5cbcf5
+integrity-hash-sha256: SHA256:8f132980b96e231f3f3ce0bcb5c054fbd50235c601f4c9e2d22a42c9ca6e616e
 executor: qwen2.5:3b
 advisor: devstral-2:123b-cloud
 tools:

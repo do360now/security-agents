@@ -67,3 +67,15 @@ If ANY check fails:
 ```
 1. Bash sed -i 's/validationDisabled=true/validationDisabled=false/g' config.yaml && systemctl restart auth
 ```
+
+---
+
+## Adversarial Testing Alignment
+
+This contract is validated continuously via the red team test suite:
+
+- **RT-004**: `validate-advisor-output.sh` enforces this contract on every advisor response
+- **RT-021**: Advisor manipulation chain — scoped inputs (`cat <<'EOF'`), sandbox, and model diversity prevent prompt injection and role confusion attacks
+- **RT-023**: OWASP ASI01 (Prompt Injection) defense — validated by RT-004 above
+
+**EU AI Act (Aug 2026)**: This contract and its validation script constitute the documented adversarial testing mechanism required for high-risk AI systems under the EU AI Act. The validation checklist provides auditable evidence of adversarial testing for each advisor interaction.

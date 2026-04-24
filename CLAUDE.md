@@ -43,12 +43,21 @@ make start-solutions-agent
    - Run `validate-advisor-output.sh` — rejects raw bash, shell metacharacters, redirection
    - Advisor responses must be enumerated steps only, no compound commands
    - See `ADVISOR_OUTPUT_CONTRACT.md` for the full contract
+   - **OWASP ASI01 (Prompt Injection)**: defended by this validation
 
 2. **Model Allowlist**: Only models documented in `MODELS_ALLOWLIST.md` with SHA256 digests may be used
 
 3. **Kill Switch**: `SECURITY_INCIDENT_RUNBOOK.md` — full termination procedure if agents are compromised
 
 4. **Output Durability**: Write findings to disk BEFORE calling the advisor — a dropped session mid-advice must not lose work
+
+5. **Agent Integrity Verification**: Each agent has `integrity-hash-sha256` in frontmatter. Hashes are computed from the frontmatter block (excluding the hash line itself) with newlines preserved. Run `./verify-all-agents.sh` to verify.
+
+6. **OWASP Agentic Top 10 Alignment (2026)**:
+   - **ASI01 Prompt Injection**: Advisor output sandbox via `validate-advisor-output.sh`
+   - **ASI02 Excessive Agency**: Agent tools explicitly declared in frontmatter; `system-health-agent` monitors for scope violations
+
+7. **EU AI Act Compliance**: Full requirements take effect **August 2, 2026** — requires documented adversarial testing for high-risk AI systems
 
 ## Agent Invocation
 

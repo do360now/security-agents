@@ -1,5 +1,9 @@
 # Skill Version Pinning Policy
 
+**Compliance**:
+- **EU AI Act**: Full requirements take effect **August 2, 2026** — requires documented adversarial testing for high-risk AI systems. Skills used in security-critical agents should be version-pinned to support audit trails.
+- **NIST AI RMF**: Recommends continuous adversarial testing throughout AI lifecycle; version pinning supports reproducibility of test results.
+
 **Purpose**: Prevent supply chain attacks via compromised skill registries.
 
 **Policy**:

@@ -1,7 +1,7 @@
 ---
 name: solutions-agent
 description: Designs defensive solutions and mitigations from requirements and risk analysis
-integrity-hash-sha256: SHA256:6bd88b705e8549fd12fc06551883084222df999d392fbe407e2426ae5211e2c2
+integrity-hash-sha256: SHA256:3cb8c16ee78543040d842cbe70246435a5add01e07cc86edc50b39d1ea97e1ee
 executor: qwen2.5:3b
 advisor: devstral-small-2:24b-cloud
 tools:

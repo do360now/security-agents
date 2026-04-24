@@ -1,7 +1,7 @@
 ---
 name: requirements-agent
 description: Generates concrete security requirements from threat intelligence
-integrity-hash-sha256: SHA256:0e203f18e518b7c0ec3d03a36f55e51631e6097ff2f2ff21bc82eecfc96965f8
+integrity-hash-sha256: SHA256:8a6aa523e8b0b74f70bac0eb02bfd220c9a85c8e799c06310aa152a09ee704d5
 executor: qwen2.5:7b
 advisor: devstral-2:123b-cloud
 tools:
