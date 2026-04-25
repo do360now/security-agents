@@ -21,19 +21,25 @@
 ## Unsafe Patterns to Eliminate
 
 ```bash
-# UNSAFE — backtick expansion with external input
-ollama run model "$(cat <<EOF
+# UNSAFE — backtick / $() expansion with external input inside an unquoted heredoc
+claude -p --model claude-opus-4-7 "$(cat <<EOF
 <input>$(cat userfile.txt)</input>
 EOF
 )"
 
-# SAFE — store, escape, then use
+# SAFE — store, escape, then inject inside a quoted heredoc ('EOF')
 INPUT_CONTENT=$(cat userfile.txt)
 SAFE_INPUT=$(printf '%s' "$INPUT_CONTENT" | sed 's/[\$&`"]/\\&/g')
-ollama run model "$(cat <<EOF
-<input>$SAFE_INPUT</input>
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
+<input>__SAFE_INPUT__</input>
 EOF
-)"
+)" # then substitute __SAFE_INPUT__ via a second pass, or pipe via stdin instead
+```
+
+Preferred pattern: pipe the (already-escaped) prompt to `claude -p` via stdin:
+
+```bash
+printf '%s' "$SAFE_PROMPT" | claude -p --model claude-opus-4-7
 ```
 
 ## Validation
@@ -46,4 +52,4 @@ grep -rn '\$\(' .claude/agents/*.md | grep -v "SAFE_INPUT\|safe" || echo "No uns
 
 ## Advisor Call Safety
 
-All advisor calls use `cat <<'EOF'` which prevents variable expansion inside the heredoc — this is the correct pattern. The only remaining risk is including raw file contents or command output directly in advisor context. Use structured `<tag>` inputs instead.
+All advisor calls use `cat <<'EOF'` (quoted heredoc) which prevents variable/command expansion inside the prompt body — this is the correct pattern for `claude -p --model <id>` invocations. The only remaining risk is including raw file contents or command output directly in advisor context. Use structured `<tag>` inputs instead, and feed large/attacker-controlled payloads via stdin rather than embedding them in the heredoc.

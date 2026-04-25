@@ -1,20 +1,24 @@
-# Claude Code Agents — Ollama Advisor Pattern
+# Claude Code Agents — Claude-family Advisor Pattern
 
-Custom agents that pair a **fast executor** with a **stronger advisor** — both running on open-weight models via Ollama. Loosely modelled on Anthropic's [advisor tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool).
+Custom agents that pair a **fast executor** with a **stronger advisor** — both running on Anthropic's Claude model family. Loosely modelled on Anthropic's [advisor tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool).
 
 ## Why the advisor pattern
 
-Most work on agentic tasks is mechanical (listing files, running commands, reading output). The hard part is picking the *right plan*. The advisor pattern keeps token-heavy execution on a cheap model and reserves the expensive model for the handful of decision points that matter.
+Most work on agentic tasks is mechanical (listing files, running commands, reading output). The hard part is picking the *right plan*. The advisor pattern keeps token-heavy execution on a cheaper model (Haiku / Sonnet) and reserves the expensive model (Opus) for the handful of decision points that matter.
 
 ## Agents
 
 | Agent | Executor | Advisor | Description |
 |-------|----------|---------|-------------|
-| `security-agent` | `devstral-small-2:cloud` | `glm-5.1:cloud` | Vulnerability scan, code review |
-| `system-health-agent` | `ministral-3:cloud` | `gemma4:cloud` | Process/resource diagnostics |
-| `maintenance-agent` | `minimax-m2.5:cloud` | `devstral-2:cloud` | Updates, cleanup, optimization |
+| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Vulnerability scan, code review |
+| `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Process/resource diagnostics |
+| `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Updates, cleanup, optimization |
+| `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Requirements from threat intel |
+| `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Risk scoring, red-team tests |
+| `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Defensive solution design |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | 3-stage AI security pipeline |
 
-All models run on Ollama **cloud** (`:cloud` suffix) — no local GPU. Claude Code itself is launched with e.g. `ollama launch claude --model minimax-m2.5:cloud`; the agent then shells out to other cloud models for advisor consultations. Swap in any cloud models you prefer — pairing (fast ↔ strong) matters more than names.
+Claude Code itself can be launched with any of these models (`claude --model claude-sonnet-4-6`). The agent shells out to other Claude models for advisor consultations via `claude -p --model ...` or via the Anthropic SDK. Pairing (fast ↔ strong) matters more than exact names — swap tiers based on cost/latency needs.
 
 ## Usage
 
@@ -28,10 +32,10 @@ Agent(
 
 ## Advisor invocation
 
-The executor shells out to Ollama at three moments: early (after orientation), when stuck, and before declaring done.
+The executor shells out to Claude at three moments: early (after orientation), when stuck, and before declaring done.
 
 ```bash
-ollama run glm-5.1:cloud "$(cat <<'EOF'
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
 You are a security advisor. Respond in under 100 words, enumerated steps only.
 
 <task>Audit src/auth/ for injection/authz issues</task>

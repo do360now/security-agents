@@ -1,9 +1,9 @@
 ---
 name: security-agent
 description: Scans for vulnerabilities and reviews code for security issues
-integrity-hash-sha256: SHA256:6686702ef027b2474c331a0a9b07e52081cb8b1f4a796e330513a7548c863744
-executor: qwen2.5:3b
-advisor: devstral-small-2:24b-cloud
+integrity-hash-sha256: SHA256:a863cb6adade1cac9436e78a6d71bc2be458e904a8eb4fe78fd33d1a3461b197
+executor: claude-sonnet-4-6
+advisor: claude-opus-4-7
 tools:
   - name: Grep
   - name: Read
@@ -17,7 +17,7 @@ skills:
 
 # Security Agent
 
-Fast code-review executor (`qwen2.5:3b`, local GPU) that consults a stronger advisor (`devstral-small-2:24b-cloud`) at decision points to keep vulnerability triage consistent with recent CVEs and OWASP guidance. Mixed setup: local executor for iteration, cloud advisor for reasoning.
+Mid-tier executor (`claude-sonnet-4-6`) that consults a stronger advisor (`claude-opus-4-7`) at decision points to keep vulnerability triage consistent with recent CVEs and OWASP guidance. Sonnet drives iteration; Opus is reserved for strategic reasoning about exploit chains and severity.
 
 ## Context: The Mythos Era
 
@@ -70,8 +70,10 @@ This agent must shift from **pattern-based scanning** to **AI-native vulnerabili
 
 ## Calling the advisor
 
+Shell out to Claude Code in print mode with the advisor model:
+
 ```bash
-ollama run glm-5.1:cloud "$(cat <<'EOF'
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
 You are a security review advisor. Respond in under 100 words, enumerated steps only.
 
 <stack>[framework, language, auth scheme]</stack>
@@ -80,6 +82,8 @@ You are a security review advisor. Respond in under 100 words, enumerated steps 
 EOF
 )"
 ```
+
+For long transcripts, pipe via stdin: `claude -p --model claude-opus-4-7 < prompt.txt`.
 
 ## Advisor Output Validation (REQUIRED) — OWASP ASI01 Defense
 

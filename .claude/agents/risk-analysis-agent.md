@@ -1,9 +1,9 @@
 ---
 name: risk-analysis-agent
 description: Analyzes requirements for risks and generates red-team tests
-integrity-hash-sha256: SHA256:e91ebbe241f02d7a464b6686c0bbf9888165ca96ab488eb34870a92bfd791806
-executor: glm-5.1:cloud
-advisor: devstral-2:123b-cloud
+integrity-hash-sha256: SHA256:b4337bf3397c08b4b2e69a64f7d1805d113925cf7c2d31862d9256fafb297c27
+executor: claude-sonnet-4-6
+advisor: claude-opus-4-7
 tools:
   - name: Bash
   - name: Read
@@ -66,14 +66,14 @@ Also produces `RED_TEAM_TESTS.md` — a consolidated test suite.
 
 ## Advisor-call timing
 
-This agent uses `glm-5.1:cloud` for structured analysis. Call the advisor after initial risk enumeration:
+This agent uses `claude-sonnet-4-6` for structured analysis and calls the `claude-opus-4-7` advisor after initial risk enumeration:
 - "Are there AI-native attack patterns I'm missing for these requirements?"
 - "Which of these risks would a Mythos-class model likely find autonomously?"
 
 ## Calling the advisor
 
 ```bash
-ollama run glm-5.1:cloud "$(cat <<'EOF'
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
 You are a security risk advisor. Respond in under 100 words, enumerated steps only.
 
 <requirements>[list of requirements being analyzed]</requirements>

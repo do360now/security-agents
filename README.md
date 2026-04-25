@@ -1,6 +1,6 @@
 # AI Security Panel
 
-A defensive AI security system that helps defenders respond to AI-capable adversaries. It uses a **dual-model advisor pattern**: a fast local executor handles the operational loop, while a stronger cloud-based advisor provides strategic guidance at key decision points.
+A defensive AI security system that helps defenders respond to AI-capable adversaries. It uses a **dual-model advisor pattern** on Anthropic's Claude family: a faster executor (Haiku 4.5 / Sonnet 4.6) handles the operational loop, while a stronger advisor (Sonnet 4.6 / Opus 4.6 / Opus 4.7) provides strategic guidance at key decision points.
 
 ## Overview
 
@@ -13,12 +13,15 @@ This system is designed to help security teams:
 ## Quick Start
 
 ```bash
-# Run the full security panel pipeline
+# Show per-agent model pairing and launch command
 make start-security-agent
-
-# Run individual agents
 make start-requirements-agent
 make start-solutions-agent
+
+# Launch Claude Code on a specific tier
+make start-opus-4-7
+make start-sonnet-4-6
+make start-haiku-4-5
 
 # Verify all agents are working correctly
 ./verify-all-agents.sh
@@ -36,8 +39,8 @@ The system uses 7 specialized agents, each with two components:
 
 | Component | Description |
 |-----------|-------------|
-| **Executor** | Local Ollama model for real-time operations |
-| **Advisor** | Cloud model consulted for strategic decisions |
+| **Executor** | Faster Claude tier (Haiku 4.5 or Sonnet 4.6) driving the agent's loop |
+| **Advisor** | Stronger Claude tier (Sonnet 4.6 / Opus 4.6 / Opus 4.7) consulted at decision points |
 
 The **Security Panel** orchestrates a three-stage pipeline:
 ```
@@ -50,13 +53,13 @@ Findings are written to `/tmp/ai-security-panel/` for durability before consulti
 
 | Agent | Executor | Advisor | Purpose |
 |-------|----------|---------|---------|
-| `security-agent` | qwen2.5:3b | devstral-small-2:24b-cloud | Vulnerability analysis |
-| `requirements-agent` | qwen2.5:7b | devstral-2:123b-cloud | Generate requirements from threats |
-| `risk-analysis-agent` | glm-5.1:cloud | devstral-2:123b-cloud | Risk analysis + red team tests |
-| `solutions-agent` | qwen2.5:3b | devstral-small-2:24b-cloud | Design mitigations |
-| `security-panel` | devstral-2:123b-cloud | devstral-small-2:24b-cloud | Orchestrates 3-stage pipeline |
-| `system-health-agent` | qwen2.5:3b | gemma4:31b-cloud | Monitor system health |
-| `maintenance-agent` | qwen2.5:3b | devstral-2:123b-cloud | System maintenance |
+| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Vulnerability analysis |
+| `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Generate requirements from threats |
+| `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Risk analysis + red team tests |
+| `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Design mitigations |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Orchestrates 3-stage pipeline |
+| `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Monitor system health |
+| `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | System maintenance |
 
 ## Security Controls
 
@@ -74,15 +77,15 @@ This is enforced by `validate-advisor-output.sh`. Run it after any advisor inter
 - **ASI02 Excessive Agency**: Agent tools explicitly declared; system-health-agent monitors for scope violations
 
 ### 2. Model Allowlist
-Only models documented in `MODELS_ALLOWLIST.md` with verified SHA256 digests may be used. This prevents unauthorized model substitution.
+Only Claude model IDs documented in `MODELS_ALLOWLIST.md` may be used. Because Claude models are served by Anthropic's API, identity is established by **exact-ID pinning + TLS** rather than a local weight digest.
 
-To verify a model:
+To verify a model ID is allowlisted:
 ```bash
-./verify-model-digest.sh <model-name>:cloud
+./verify-model-digest.sh claude-opus-4-7
 ```
 
 ### 3. Agent Integrity Verification
-Each agent has an `integrity-hash-sha256` field. Run verification:
+Each agent has an `integrity-hash-sha256` field (SHA-256 of the frontmatter block excluding the hash line itself). Run verification:
 ```bash
 ./verify-all-agents.sh
 ```
@@ -92,7 +95,7 @@ If agents are compromised, refer to `SECURITY_INCIDENT_RUNBOOK.md` for the full 
 
 **Emergency termination (single command):**
 ```bash
-pkill -9 -f "ollama" && pkill -9 -f "claude" && echo "All agent processes killed"
+pkill -9 -f "claude" && echo "All Claude agent processes killed"
 ```
 
 ### 5. Output Durability
@@ -165,8 +168,8 @@ Install: `pip install garak pyrit llm-guard promptfoo`
 ## Verification Scripts
 
 ```bash
-./verify-all-agents.sh          # Verify all agent hashes
-./verify-model-digest.sh        # Verify model SHA-256 digests
+./verify-all-agents.sh          # Verify all agent frontmatter hashes
+./verify-model-digest.sh        # Verify a Claude model ID is allowlisted
 ./validate-makefile-models.sh   # Verify Makefile model references
 ./validate-advisor-output.sh    # Validate advisor output contract
 ./verify-skill-versions.sh      # Verify skill versions
@@ -181,8 +184,8 @@ New agents must include the following frontmatter:
 ---
 name: my-agent
 description: One-line purpose
-executor: <model>
-advisor: <model>
+executor: claude-sonnet-4-6
+advisor: claude-opus-4-7
 integrity-hash-sha256: SHA256:<hash>
 tools: [Bash, Read, Write, ...]
 skills: []
@@ -191,28 +194,19 @@ skills: []
 
 ## Approved Models
 
-### Local Models (GTX 1070 compatible — 8GB VRAM)
-- `qwen2.5:3b` — Fast executor for security-agent, solutions-agent
-- `qwen2.5:7b` — Stronger executor for requirements-agent
-- `llama3.2:3b` — Alternative fast executor
-- `mistral:7b` — Alternative 7B executor
-- `codellama:7b` — Code-focused executor
+All models are Anthropic-served; they are referenced by exact model ID (no floating aliases). See `MODELS_ALLOWLIST.md` for full metadata.
 
-### Cloud Models (advisors)
-- `devstral-2:123b-cloud` — Requirements agent advisor
-- `devstral-small-2:24b-cloud` — Security/solutions advisor
-- `glm-5.1:cloud` — Risk analysis advisor
-- `minimax-m2.5:cloud` — Maintenance agent
-- `minimax-m2.7:cloud` — Alternative executor
-- `ministral-3:14b-cloud` — System health advisor
-- `gemma4:31b-cloud` — System health advisor
+- `claude-opus-4-7` — Flagship; deepest reasoning; 1M-token context. Advisor for security-critical agents; executor for security-panel.
+- `claude-opus-4-6` — Strong reasoning; advisor for security-panel.
+- `claude-sonnet-4-6` — Balanced executor/advisor; default for most agents.
+- `claude-haiku-4-5` — Fast/cheap executor; used by system-health-agent and maintenance-agent.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `ADVISOR_OUTPUT_CONTRACT.md` | Full contract for advisor output validation |
-| `MODELS_ALLOWLIST.md` | List of permitted models with SHA256 digests |
+| `MODELS_ALLOWLIST.md` | Claude model IDs permitted in this repo |
 | `SECURITY_INCIDENT_RUNBOOK.md` | Kill switch and incident response procedures |
 | `COMMAND_SAFETY_GUIDELINES.md` | Safety guidelines for command execution |
 | `SKILL_VERSION_POLICY.md` | Skill version pinning policy |

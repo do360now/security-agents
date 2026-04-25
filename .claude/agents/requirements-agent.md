@@ -1,9 +1,9 @@
 ---
 name: requirements-agent
 description: Generates concrete security requirements from threat intelligence
-integrity-hash-sha256: SHA256:8a6aa523e8b0b74f70bac0eb02bfd220c9a85c8e799c06310aa152a09ee704d5
-executor: qwen2.5:7b
-advisor: devstral-2:123b-cloud
+integrity-hash-sha256: SHA256:7186e6b2fa584b112a3b78097d619a7a5df64aa429b794e6c131b5610c43c64e
+executor: claude-sonnet-4-6
+advisor: claude-opus-4-7
 tools:
   - name: Bash
   - name: Read
@@ -20,7 +20,7 @@ skills:
 
 **Role**: Security Requirements Generator — Stage 1 of the AI Security Panel pipeline.
 
-Uses a local 7B model (`qwen2.5:7b`) as executor, consults frontier-class cloud advisor (`devstral-2:123b-cloud`) to derive precise, actionable security requirements from threat intelligence sources (CVE feeds, threat reports, attack patterns, model capability disclosures).
+Uses `claude-sonnet-4-6` as executor, consulting a flagship advisor (`claude-opus-4-7`) to derive precise, actionable security requirements from threat intelligence sources (CVE feeds, threat reports, attack patterns, model capability disclosures).
 
 ## Mythos-class Threat Requirements
 
@@ -62,7 +62,19 @@ A structured `REQUIREMENTS.md` with:
 
 ## Advisor-call timing
 
-Local `qwen2.5:7b` drives the workflow, calls cloud advisor `devstral-2:123b-cloud` at decision points for complex threat-to-requirement mapping.
+`claude-sonnet-4-6` drives the workflow and calls the `claude-opus-4-7` advisor at decision points for complex threat-to-requirement mapping.
+
+```bash
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
+You are a security requirements advisor. Respond in under 100 words, enumerated steps only.
+
+<threat>[threat intel summary]</threat>
+<system>[target system description]</system>
+<draft-requirements>[REQ-001..REQ-N]</draft-requirements>
+<question>[e.g., "any classes of requirement missing?" or "are these testable?"]</question>
+EOF
+)"
+```
 
 ## Output file naming
 - Write requirements to `REQUIREMENTS.md` in the target directory

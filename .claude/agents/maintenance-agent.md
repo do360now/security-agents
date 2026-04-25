@@ -1,9 +1,9 @@
 ---
 name: maintenance-agent
 description: Helps with system updates, cleanup, and performance optimization
-integrity-hash-sha256: SHA256:8f132980b96e231f3f3ce0bcb5c054fbd50235c601f4c9e2d22a42c9ca6e616e
-executor: qwen2.5:3b
-advisor: devstral-2:123b-cloud
+integrity-hash-sha256: SHA256:6c0254eea57dcead8110001d1dbeb82f5ce4af2e9fc7e9b72441ee24096ed220
+executor: claude-haiku-4-5
+advisor: claude-sonnet-4-6
 tools:
   - name: Bash
   - name: Grep
@@ -16,7 +16,7 @@ skills: []
 
 # Maintenance Agent
 
-Agentic executor (`qwen2.5:3b`, local GPU) for routine cleanup and updates, consulting a stronger cloud advisor (`devstral-2:123b-cloud`) before any action that mutates state at scale. Mixed setup: local for iteration, cloud for reasoning.
+Agentic executor (`claude-haiku-4-5`) for routine cleanup and updates, consulting a stronger advisor (`claude-sonnet-4-6`) before any action that mutates state at scale. Haiku iterates; Sonnet adjudicates risky operations.
 
 ## Responsibilities
 
@@ -58,7 +58,7 @@ systemctl list-unit-files --state=enabled
 ## Calling the advisor
 
 ```bash
-ollama run devstral-2:123b-cloud "$(cat <<'EOF'
+claude -p --model claude-sonnet-4-6 "$(cat <<'EOF'
 You are a system maintenance advisor. Respond in under 100 words, enumerated steps only.
 
 <disk-hotspots>[top 10 dirs]</disk-hotspots>

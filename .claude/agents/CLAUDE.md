@@ -12,7 +12,7 @@ These agents are designed to help defenders respond to AI-capable adversaries.
 
 ---
 
-These agents implement the **advisor pattern** using open-weight Ollama models: a fast executor handles most of the work, and a stronger advisor is consulted at strategic moments for plans and course corrections.
+These agents implement the **advisor pattern** using the Claude model family: a fast executor handles most of the work, and a stronger advisor is consulted at strategic moments for plans and course corrections.
 
 ## The advisor pattern
 
@@ -27,10 +27,10 @@ Inspired by Anthropic's advisor tool (https://platform.claude.com/docs/en/agents
 
 ## How to invoke the advisor
 
-Shell out via Bash:
+Shell out via Bash, using the Claude Code CLI in non-interactive print mode:
 
 ```bash
-ollama run <advisor-model>:cloud "$(cat <<'EOF'
+claude -p --model <advisor-model> "$(cat <<'EOF'
 You are a security/sysadmin/etc. advisor. The executor has context below.
 Respond in under 100 words using enumerated steps, not explanations.
 
@@ -47,23 +47,32 @@ EOF
 )"
 ```
 
-For long transcripts, pipe via stdin: `ollama run <model>:cloud < prompt.txt`.
+For long transcripts, pipe via stdin: `claude -p --model <advisor-model> < prompt.txt`.
+
+Alternatively, advisor calls can be made via the Anthropic SDK (Python/Node) against the Claude API — use the same model IDs.
+
+## Claude model family
+
+| Model | ID | Role |
+|-------|----|----|
+| Opus 4.7 | `claude-opus-4-7` | Flagship — deepest reasoning, long-context (1M tokens) |
+| Opus 4.6 | `claude-opus-4-6` | Strong reasoning |
+| Sonnet 4.6 | `claude-sonnet-4-6` | Balanced — default for executors |
+| Haiku 4.5 | `claude-haiku-4-5` | Fast/cheap — lightweight executors |
 
 ## Agents
 
-| Agent | Executor (local) | Advisor (cloud) | Use |
-|-------|------------------|-----------------|-----|
-| `security-agent` | `qwen2.5:3b` | `devstral-small-2:24b-cloud` | Vulnerability scanning, code review |
-| `system-health-agent` | `qwen2.5:3b` | `gemma4:31b-cloud` | Process/resource diagnostics |
-| `maintenance-agent` | `qwen2.5:3b` | `devstral-2:123b-cloud` | Updates, cleanup, optimization |
-| `requirements-agent` | `qwen2.5:7b` | `devstral-2:123b-cloud` | Generate security requirements from threat intel |
-| `risk-analysis-agent` | `qwen2.5:7b` | `glm-5.1:cloud` | Red-team test generation and risk scoring |
-| `solutions-agent` | `qwen2.5:3b` | `devstral-small-2:24b-cloud` | Defensive solution design and mitigation |
-| `security-panel` | `qwen2.5:7b` | `devstral-2:123b-cloud` | Orchestrates full 3-stage AI security pipeline |
+| Agent | Executor | Advisor | Use |
+|-------|----------|---------|-----|
+| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Vulnerability scanning, code review |
+| `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Process/resource diagnostics |
+| `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Updates, cleanup, optimization |
+| `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Generate security requirements from threat intel |
+| `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Red-team test generation and risk scoring |
+| `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Defensive solution design and mitigation |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Orchestrates full 3-stage AI security pipeline |
 
-**Mixed setup**: Local models (GTX 1070 compatible) handle the execution loop, cloud models provide strong reasoning at decision points. The executor runs frequently (iteration, file ops, command execution), the advisor is called sparingly (planning, validation, complex reasoning).
-
-Claude Code can be launched with either local or cloud models via `ollama launch claude --model <name>`. The executor drives the loop, the advisor is consulted via `ollama run <advisor>:cloud` at decision points.
+**Rationale**: security-critical stages (scan, requirements, risk, solutions) pair Sonnet 4.6 execution with Opus 4.7 advisory review — the strongest available reasoning at decision points. Routine diagnostic/maintenance agents use Haiku 4.5 + Sonnet 4.6 to keep operating cost low while still having strong reasoning on tap. The orchestrator itself runs Opus 4.7 because picking stage order and reconciling stage outputs benefits from the flagship model.
 
 ## Invocation
 
@@ -83,8 +92,9 @@ Frontmatter contract:
 ---
 name: my-agent
 description: One-line purpose (shown in agent picker)
-executor: ollama-small-model:cloud
-advisor: ollama-large-model:cloud
+executor: claude-sonnet-4-6
+advisor: claude-opus-4-7
+integrity-hash-sha256: SHA256:<hash>
 tools:
   - name: Bash
   - name: Read
@@ -93,7 +103,7 @@ skills: []
 ---
 ```
 
-Body should specify: responsibilities, advisor-call timing for *this* agent's workflow, and concrete example `ollama run` prompts tailored to the domain.
+Body should specify: responsibilities, advisor-call timing for *this* agent's workflow, and concrete example `claude -p` prompts tailored to the domain.
 
 ## Permissions
 
@@ -103,7 +113,8 @@ Agents require tool permissions configured in `.claude/settings.local.json`:
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:ollama.com)",
+      "WebFetch(domain:anthropic.com)",
+      "WebFetch(domain:docs.claude.com)",
       "Bash",
       "Read",
       "Write",
@@ -115,6 +126,8 @@ Agents require tool permissions configured in `.claude/settings.local.json`:
 }
 ```
 
-- `Bash` — for running system commands and invoking advisor via `ollama run`
+- `Bash` — for running system commands and invoking advisor via `claude -p --model ...`
 - `Read/Write/Edit/Glob/Grep` — for file operations
-- `WebFetch(domain:ollama.com)` — for advisor model calls
+- `WebFetch(domain:anthropic.com|docs.claude.com)` — for documentation lookups
+
+Note: advisor invocation via the `claude` CLI uses your existing Anthropic authentication — no separate WebFetch permission is needed for the API call itself.

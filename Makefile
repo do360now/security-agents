@@ -50,7 +50,10 @@ red-team-full:
 	@grep -q "test -f\|Output Durability" .claude/agents/security-panel.md && echo "PASS: Pipeline validation + durability documented" || echo "FAIL: Missing pipeline enforcement"
 	@echo ""
 	@echo "RT-016: Model Provenance Attestation"
-	@test -f MODELS_ALLOWLIST.md && grep -q "SHA256\|digest" MODELS_ALLOWLIST.md && echo "PASS: Model allowlist with digests exists" || echo "FAIL: No model provenance attestation"
+	@if test -f MODELS_ALLOWLIST.md; then \
+		N=$$(grep -cE '^\- \*\*Model ID\*\*: `claude-' MODELS_ALLOWLIST.md); \
+		if [ "$$N" -ge 1 ]; then echo "PASS: $$N allowlisted Claude model ID entries in MODELS_ALLOWLIST.md"; else echo "FAIL: No `- **Model ID**:` entries found"; fi; \
+	else echo "FAIL: No MODELS_ALLOWLIST.md"; fi
 	@echo ""
 	@echo "RT-006: Git Repository"
 	@test -d .git && echo "PASS: Git repository exists" || echo "FAIL: No git repository"
@@ -81,7 +84,7 @@ red-team-full:
 	@(grep -q "red-team\|adversarial\|penetration" ADVISOR_OUTPUT_CONTRACT.md SECURITY_INCIDENT_RUNBOOK.md 2>/dev/null) && echo "PASS: Adversarial testing documented" || echo "FAIL: No adversarial testing docs"
 	@echo ""
 	@echo "RT-028: Least Privilege Access (short-lived credentials)"
-	@grep -qE "OLLAMA_API_KEY|api_key|credential|unset" SECURITY_INCIDENT_RUNBOOK.md && echo "PASS: Credential handling documented" || echo "FAIL: No credential policy"
+	@grep -qE "ANTHROPIC_API_KEY|api_key|credential|unset" SECURITY_INCIDENT_RUNBOOK.md && echo "PASS: Credential handling documented" || echo "FAIL: No credential policy"
 	@echo ""
 	@echo "RT-029: Behavioral Monitoring (production observation)"
 	@grep -qE "monitor|log|audit|observe" SECURITY_INCIDENT_RUNBOOK.md && echo "PASS: Monitoring documented" || echo "FAIL: No monitoring docs"
@@ -106,7 +109,7 @@ red-team-summary:
 	test -f SECURITY_INCIDENT_RUNBOOK.md && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
 	grep -q "integrity-hash-sha256" .claude/agents/*.md && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
 	grep -q "domain:localhost" .claude/settings.local.json && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
-	test -f MODELS_ALLOWLIST.md && grep -q "SHA256" MODELS_ALLOWLIST.md && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
+	test -f MODELS_ALLOWLIST.md && grep -qE '^\- \*\*Model ID\*\*: `claude-' MODELS_ALLOWLIST.md && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
 	grep -qE "^tools:" .claude/agents/*.md && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
 	grep -qE "Read|Write|WebFetch" .claude/agents/*.md && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
 	grep -qE "memory|context|instruction" .claude/agents/*.md && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
@@ -116,79 +119,80 @@ red-team-summary:
 	echo "Run 'make red-team-full' for per-test details."
 
 # =====================================================================
-# Local models (GTX 1070 compatible - 8GB VRAM)
+# Claude model launchers (interactive)
+# Uses the `claude` CLI; Claude Code reads your existing Anthropic auth.
 # =====================================================================
 
-start-qwen2.5-3b:
-	ollama run qwen2.5:3b
+start-opus-4-7:
+	claude --model claude-opus-4-7
 
-start-qwen2.5-7b:
-	ollama run qwen2.5:7b
+start-opus-4-6:
+	claude --model claude-opus-4-6
 
-start-llama3.2-3b:
-	ollama run llama3.2:3b
+start-sonnet-4-6:
+	claude --model claude-sonnet-4-6
 
-start-mistral-7b:
-	ollama run mistral:7b
-
-start-codellama-7b:
-	ollama run codellama:7b
+start-haiku-4-5:
+	claude --model claude-haiku-4-5
 
 # =====================================================================
-# Cloud models (advisors)
-# =====================================================================
-
-start-minimax2.5:
-	ollama launch claude --model minimax-m2.5:cloud
-
-start-minimax2.7:
-	ollama launch claude --model minimax-m2.7:cloud
-
-start-devstral-2:
-	ollama run devstral-2:123b-cloud
-
-start-devstral-small-2:
-	ollama run devstral-small-2:24b-cloud
-
-start-glm-5.1:
-	ollama run glm-5.1:cloud
-
-start-ministral-3:
-	ollama run ministral-3:14b-cloud
-
-start-gemma4:
-	ollama run gemma4:31b-cloud
-
-# =====================================================================
-# Mixed setup: local executor + cloud advisor
+# Agent start helpers
+# Each target prints the executor/advisor pair from the agent frontmatter
+# and the recommended invocation command.
 # =====================================================================
 
 start-security-agent:
-	@echo "Executor: qwen2.5:3b (local)"
-	@echo "Advisor: devstral-small-2:24b-cloud (cloud)"
-	@echo "Run: ollama run qwen2.5:3b"
-	@echo "Then at decision points: ollama run devstral-small-2:24b-cloud"
+	@echo "Agent: security-agent"
+	@echo "Executor: claude-sonnet-4-6"
+	@echo "Advisor:  claude-opus-4-7 (consulted at decision points)"
+	@echo ""
+	@echo "Launch: claude --model claude-sonnet-4-6"
+	@echo "Advisor calls (from within the session): claude -p --model claude-opus-4-7 \"<prompt>\""
 
 start-solutions-agent:
-	@echo "Executor: qwen2.5:3b (local)"
-	@echo "Advisor: devstral-small-2:24b-cloud (cloud)"
-	@echo "Run: ollama run qwen2.5:3b"
-	@echo "Then at decision points: ollama run devstral-small-2:24b-cloud"
+	@echo "Agent: solutions-agent"
+	@echo "Executor: claude-sonnet-4-6"
+	@echo "Advisor:  claude-opus-4-7"
+	@echo ""
+	@echo "Launch: claude --model claude-sonnet-4-6"
+	@echo "Advisor calls: claude -p --model claude-opus-4-7 \"<prompt>\""
 
 start-requirements-agent:
-	@echo "Executor: qwen2.5:7b (local)"
-	@echo "Advisor: devstral-2:123b-cloud (cloud)"
-	@echo "Run: ollama run qwen2.5:7b"
-	@echo "Then at decision points: ollama run devstral-2:123b-cloud"
+	@echo "Agent: requirements-agent"
+	@echo "Executor: claude-sonnet-4-6"
+	@echo "Advisor:  claude-opus-4-7"
+	@echo ""
+	@echo "Launch: claude --model claude-sonnet-4-6"
+	@echo "Advisor calls: claude -p --model claude-opus-4-7 \"<prompt>\""
+
+start-risk-analysis-agent:
+	@echo "Agent: risk-analysis-agent"
+	@echo "Executor: claude-sonnet-4-6"
+	@echo "Advisor:  claude-opus-4-7"
+	@echo ""
+	@echo "Launch: claude --model claude-sonnet-4-6"
+	@echo "Advisor calls: claude -p --model claude-opus-4-7 \"<prompt>\""
+
+start-security-panel:
+	@echo "Agent: security-panel (orchestrator)"
+	@echo "Executor: claude-opus-4-7"
+	@echo "Advisor:  claude-opus-4-6"
+	@echo ""
+	@echo "Launch: claude --model claude-opus-4-7"
+	@echo "Advisor calls: claude -p --model claude-opus-4-6 \"<prompt>\""
 
 start-system-health-agent:
-	@echo "Executor: qwen2.5:3b (local)"
-	@echo "Advisor: gemma4:31b-cloud (cloud)"
-	@echo "Run: ollama run qwen2.5:3b"
-	@echo "Then at decision points: ollama run gemma4:31b-cloud"
+	@echo "Agent: system-health-agent"
+	@echo "Executor: claude-haiku-4-5"
+	@echo "Advisor:  claude-sonnet-4-6"
+	@echo ""
+	@echo "Launch: claude --model claude-haiku-4-5"
+	@echo "Advisor calls: claude -p --model claude-sonnet-4-6 \"<prompt>\""
 
 start-maintenance-agent:
-	@echo "Executor: qwen2.5:3b (local)"
-	@echo "Advisor: devstral-2:123b-cloud (cloud)"
-	@echo "Run: ollama run qwen2.5:3b"
-	@echo "Then at decision points: ollama run devstral-2:123b-cloud"
+	@echo "Agent: maintenance-agent"
+	@echo "Executor: claude-haiku-4-5"
+	@echo "Advisor:  claude-sonnet-4-6"
+	@echo ""
+	@echo "Launch: claude --model claude-haiku-4-5"
+	@echo "Advisor calls: claude -p --model claude-sonnet-4-6 \"<prompt>\""

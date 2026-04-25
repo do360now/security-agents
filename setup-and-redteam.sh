@@ -8,7 +8,7 @@
 #   ./setup-and-redteam.sh
 #
 # What it does:
-#   1. Checks prerequisites (git, bash, python3, ollama)
+#   1. Checks prerequisites (git, bash, python3, claude)
 #   2. Validates repo structure
 #   3. Runs the full red-team test suite
 #   4. Reports pass/fail summary
@@ -78,11 +78,12 @@ chmod +x verify-all-agents.sh validate-makefile-models.sh \
 # =====================================================================
 info "Checking prerequisites..."
 MISSING=()
-for cmd in python3; do
+for cmd in python3 claude; do
     command -v "$cmd" >/dev/null 2>&1 || MISSING+=("$cmd")
 done
 if [[ ${#MISSING[@]} -gt 0 ]]; then
     fail "Missing commands: ${MISSING[*]}"
+    echo "  Install Claude Code CLI: https://docs.claude.com/en/docs/claude-code/setup" >&2
     exit 1
 fi
 pass "Prerequisites OK"

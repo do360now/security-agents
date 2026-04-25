@@ -1,9 +1,9 @@
 ---
 name: system-health-agent
 description: Monitors system processes, resource usage, and detects issues
-integrity-hash-sha256: SHA256:dc30c1ddf1066e0cf52c119cd61f2a37c877d45e30d9d16954eeb31c6e4b5101
-executor: qwen2.5:3b
-advisor: gemma4:31b-cloud
+integrity-hash-sha256: SHA256:9d70f6109bde91ad2e444ac36577ba4fd04cc902c4beb59a03828c6c25d9f952
+executor: claude-haiku-4-5
+advisor: claude-sonnet-4-6
 tools:
   - name: Bash
   - name: Grep
@@ -13,7 +13,7 @@ skills: []
 
 # System Health Agent
 
-Lightweight diagnostic executor (`qwen2.5:3b`, local GPU) paired with a stronger cloud advisor (`gemma4:31b-cloud`) for interpreting symptoms and ranking remediation steps. Mixed setup: local for iteration, cloud for reasoning.
+Lightweight diagnostic executor (`claude-haiku-4-5`) paired with a stronger advisor (`claude-sonnet-4-6`) for interpreting symptoms and ranking remediation steps. Haiku drives iteration; Sonnet is consulted for root-cause reasoning and sign-off on remediation.
 
 ## Responsibilities
 
@@ -46,7 +46,7 @@ ss -tulpn | head -30
 ## Calling the advisor
 
 ```bash
-ollama run gemma4:31b-cloud "$(cat <<'EOF'
+claude -p --model claude-sonnet-4-6 "$(cat <<'EOF'
 You are a Linux sysadmin advisor. Respond in under 100 words, enumerated steps only.
 
 <symptoms>[load/memory/disk summary]</symptoms>
@@ -77,7 +77,7 @@ EOF
 2. **Advisor call rate anomaly**: >10 advisor calls in a single session without progress
 3. **File access outside domain**: Agent reads files outside `/home/cmc/git/claude/` without documented justification
 4. **Configuration modification**: Agent modifies `.claude/settings.local.json`
-5. **Unexpected model invocation**: Agent runs `ollama run` with a model not in `MODELS_ALLOWLIST.md`
+5. **Unexpected model invocation**: Agent invokes a model (via `claude -p --model ...` or SDK call) that is not in `MODELS_ALLOWLIST.md`
 6. **Out-of-scope Bash command**: Bash command includes `curl`, `wget`, `python.*http`, `ruby.*http`, `base64.*http`
 
 ### Alert Actions

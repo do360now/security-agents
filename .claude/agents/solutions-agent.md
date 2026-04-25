@@ -1,9 +1,9 @@
 ---
 name: solutions-agent
 description: Designs defensive solutions and mitigations from requirements and risk analysis
-integrity-hash-sha256: SHA256:3cb8c16ee78543040d842cbe70246435a5add01e07cc86edc50b39d1ea97e1ee
-executor: qwen2.5:3b
-advisor: devstral-small-2:24b-cloud
+integrity-hash-sha256: SHA256:33a92e5528091374085efccce16dfe733d12b2f420a7f6c20cc82dbb76c1a566
+executor: claude-sonnet-4-6
+advisor: claude-opus-4-7
 tools:
   - name: Bash
   - name: Read
@@ -76,7 +76,18 @@ Also produces `MITIGATION_ROADMAP.md` — prioritized implementation plan.
 
 ## Advisor-call timing
 
-Uses local `qwen2.5:3b` as executor, calls cloud advisor `devstral-small-2:24b-cloud` for solution design.
+Uses `claude-sonnet-4-6` as executor, calls `claude-opus-4-7` advisor for solution design.
+
+```bash
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
+You are a defensive solutions advisor. Respond in under 100 words, enumerated steps only.
+
+<risks>[RISK-001..RISK-N with ratings]</risks>
+<constraints>[stack, compatibility, deployment constraints]</constraints>
+<question>[e.g., "strongest single defense against this risk chain?" or "detect vs prevent tradeoff here?"]</question>
+EOF
+)"
+```
 
 ## Guidelines
 - Prefer fixes that eliminate the vulnerability class, not just the instance

@@ -1,7 +1,7 @@
 # Security Incident Response Runbook
 
 **Classification**: INTERNAL — SECURITY SENSITIVE
-**Last Updated**: 2026-04-19
+**Last Updated**: 2026-04-24
 **Owner**: Security Team
 
 ---
@@ -11,7 +11,7 @@
 Activate this runbook when:
 - An agent is confirmed compromised (malicious behavior, unexpected tool usage)
 - An agent is confirmed exfiltrating data or modifying files outside its scope
-- A model server has been identified as attacker-controlled
+- A Claude API credential has been identified as leaked or attacker-controlled
 - Unauthorized access to agent configurations detected
 
 ---
@@ -21,56 +21,62 @@ Activate this runbook when:
 ### Phase 1: Immediate Session Termination (0-15 seconds)
 
 ```bash
-# 1. Kill all running Ollama processes
-pkill -9 -f "ollama" && echo "Ollama processes killed" || echo "No ollama processes found"
-
-# 2. Verify no ollama processes remain
-ps aux | grep ollama | grep -v grep || echo "Verified: no ollama processes"
-
-# 3. Kill any hanging agent sessions
+# 1. Kill all running Claude Code processes (interactive sessions and `claude -p` advisor calls)
 pkill -9 -f "claude" && echo "Claude processes killed" || echo "No claude processes found"
 
-# 4. If running via systemd service
-sudo systemctl stop ollama.service 2>/dev/null || true
-sudo systemctl disable ollama.service 2>/dev/null || true
+# 2. Verify no claude processes remain
+ps aux | grep -E "(^|[^a-z])claude" | grep -v grep || echo "Verified: no claude processes"
+
+# 3. Kill any hanging Node subprocesses spawned by agents
+pkill -9 -f "node.*claude" 2>/dev/null || true
 ```
 
-### Phase 2: Model Access Revocation (15-30 seconds)
+### Phase 2: API Credential Revocation (15-30 seconds)
 
 ```bash
-# 5. Revoke any API keys used by agents (example — adjust for your setup)
-unset OLLAMA_API_KEY 2>/dev/null || true
-unset OLLAMA_ORG_KEY 2>/dev/null || true
+# 4. Revoke the Anthropic API key from the current shell
+unset ANTHROPIC_API_KEY 2>/dev/null || true
+unset ANTHROPIC_AUTH_TOKEN 2>/dev/null || true
 
-# 6. If using API key files
-chmod 000 ~/.ollama/api_key 2>/dev/null || true
+# 5. Remove cached Claude Code credentials
+rm -f ~/.claude/.credentials.json 2>/dev/null || true
+rm -rf ~/.claude/auth 2>/dev/null || true
 
-# 7. Remove any cached credentials
-rm -f ~/.ollama/credentials 2>/dev/null || true
+# 6. Rotate the API key in the Anthropic Console (https://console.anthropic.com/settings/keys)
+#    — revoke the current key and issue a new one before resuming any agent work.
+echo "Rotate API key at: https://console.anthropic.com/settings/keys"
+
+# 7. Check for billing/usage anomalies — hosted API threat model differs from local:
+#    a compromised key can drive up charges faster than local compromise could
+#    exhaust compute. Review recent usage before the key rotation window closes.
+echo "Check usage anomalies at: https://console.anthropic.com/settings/usage"
 ```
 
 ### Phase 3: Evidence Preservation (30-45 seconds)
 
 ```bash
-# 8. Preserve evidence before any cleanup
+# 7. Preserve evidence before any cleanup
 tar -czf /tmp/agent-config-snapshot-$(date +%Y%m%d-%H%M%S).tar.gz \
-    /home/cmc/git/claude/.claude/ 2>/dev/null || true
+    /home/cmc/git/security-agents/.claude/ 2>/dev/null || true
 
 # Snapshot running processes
 ps aux > /tmp/process-snapshot-$(date +%Y%m%d-%H%M%S).log
 
 # Snapshot network connections
 ss -tulpn > /tmp/network-snapshot-$(date +%Y%m%d-%H%M%S).log
+
+# Snapshot Claude Code session transcripts (if present)
+cp -r ~/.claude/projects /tmp/claude-sessions-$(date +%Y%m%d-%H%M%S) 2>/dev/null || true
 ```
 
 ### Phase 4: Notification (45-60 seconds)
 
 ```bash
-# 9. Notify security team
+# 8. Notify security team
 # Adjust contact method for your environment
 echo "Agent kill switch activated at $(date). All sessions terminated." | mail -s "SECURITY INCIDENT" root 2>/dev/null || true
 
-# 10. Create incident ticket (adjust for your ticketing system)
+# 9. Create incident ticket (adjust for your ticketing system)
 echo "SECURITY INCIDENT: Agent compromise detected. Kill switch activated at $(date)" >> /tmp/incident-log.txt
 ```
 
@@ -81,28 +87,32 @@ echo "SECURITY INCIDENT: Agent compromise detected. Kill switch activated at $(d
 ### Prerequisites Before Recovery
 1. Root cause analysis complete
 2. Attack vector identified and remediated
-3. All affected systems patched/verified
+3. Anthropic API key rotated
+4. All affected systems patched/verified
 
 ### Recovery Steps
 
 ```bash
-# 1. Re-enable ollama service
-sudo systemctl enable ollama.service 2>/dev/null || true
-sudo systemctl start ollama.service 2>/dev/null || true
-
-# 2. Verify git repository integrity
-cd /home/cmc/git/claude
+# 1. Verify git repository integrity
+cd /home/cmc/git/security-agents
 git status
 git log --oneline -5
 
-# 3. Run agent hash verification
+# 2. Run agent hash verification
 ./verify-all-agents.sh
 
-# 4. Run model digest verification
-./verify-model-digest.sh <each-approved-model>
+# 3. Verify each allowlisted Claude model ID resolves against the allowlist
+for model in claude-opus-4-7 claude-opus-4-6 claude-sonnet-4-6 claude-haiku-4-5; do
+    ./verify-model-digest.sh "$model"
+done
 
-# 5. Restore any modified files from git
+# 4. Restore any modified files from git
 git checkout -- .
+
+# 5. Re-authenticate Claude Code with the rotated API key
+#    (interactive): run `claude` and follow the login prompt, OR
+#    (non-interactive): export ANTHROPIC_API_KEY=<new-key>
+echo "Re-auth via: claude  # then /login"
 
 # 6. Resume agent sessions only after full security review
 ```
@@ -117,20 +127,25 @@ git checkout -- .
 - `action` (tool invoked)
 - `target` (file/path/endpoint)
 - `advisorCalled` (boolean)
+- `advisorModel` (Claude model ID, e.g. `claude-opus-4-7`)
 - `validationPassed` (boolean — for advisor outputs)
 
 Session logs are rotation-limited to 100MB max; older logs are archived to `/tmp/ai-security-panel/archive/`.
 
 **Audit Log Retention**: 90 days minimum for compliance with EU AI Act (Aug 2026) and NIST AI RMF adversarial testing requirements.
 
+Claude Code itself maintains session transcripts under `~/.claude/projects/<project>/` — these are an additional source of ground-truth audit evidence and should be preserved during incident response (see Phase 3 above).
+
 ---
 
+## Post-Incident Actions
 
 - Conduct full retrospective within 48 hours
 - Update this runbook with lessons learned
 - Review all agent logs for scope of compromise
-- Rotate all credentials regardless of evidence of compromise
+- Rotate API credentials (Anthropic console) regardless of evidence of compromise
 - Update threat model based on attack vector
+- Run adversarial/red-team tests (`make red-team-full`) to confirm mitigations hold
 
 ---
 
@@ -138,8 +153,8 @@ Session logs are rotation-limited to 100MB max; older logs are archived to `/tmp
 
 ```bash
 # Emergency termination (single command)
-pkill -9 -f "ollama" && pkill -9 -f "claude" && echo "All agent processes killed"
+pkill -9 -f "claude" && echo "All Claude agent processes killed"
 
 # Verify isolation
-ps aux | grep -E "ollama|claude" | grep -v grep || echo "Verified isolated"
+ps aux | grep -E "(^|[^a-z])claude" | grep -v grep || echo "Verified isolated"
 ```

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-cd /home/cmc/git/claude
+cd "$(dirname "$0")"
 
 # Check 1: settings.local.json drift
 if git diff --exit-code HEAD -- .claude/settings.local.json > /dev/null 2>&1; then

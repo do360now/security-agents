@@ -1,9 +1,9 @@
 ---
 name: security-panel
 description: Orchestrates a three-stage AI security panel: requirements → risk analysis → solutions
-integrity-hash-sha256: SHA256:aab86f073c553d80afb77b5ba7a09b034857f04dc5f76036119cac0e3c938067
-executor: devstral-2:123b-cloud
-advisor: devstral-small-2:24b-cloud
+integrity-hash-sha256: SHA256:e14341740a7069f1702ff0ef8941fe93e5f816e88c27235fc17dc570660df781
+executor: claude-opus-4-7
+advisor: claude-opus-4-6
 tools:
   - name: Bash
   - name: Read
@@ -26,19 +26,19 @@ This is not a passive scanner — it actively models how an autonomous AI attack
 ## Pipeline Overview
 
 ```
-Stage 1: REQUIREMENTS AGENT (devstral-2:123b-cloud)
+Stage 1: REQUIREMENTS AGENT (executor: claude-sonnet-4-6, advisor: claude-opus-4-7)
     Input: Threat intelligence (article/CVE/attack pattern/system description)
     Output: REQUIREMENTS.md — concrete, testable security requirements
 
            ↓
 
-Stage 2: RISK ANALYSIS AGENT (glm-5.1:cloud)
+Stage 2: RISK ANALYSIS AGENT (executor: claude-sonnet-4-6, advisor: claude-opus-4-7)
     Input: REQUIREMENTS.md + target system
     Output: RISK_ANALYSIS.md + RED_TEAM_TESTS.md — attack vectors + tests
 
            ↓
 
-Stage 3: SOLUTIONS AGENT (devstral-small-2:24b-cloud)
+Stage 3: SOLUTIONS AGENT (executor: claude-sonnet-4-6, advisor: claude-opus-4-7)
     Input: REQUIREMENTS.md + RISK_ANALYSIS.md + RED_TEAM_TESTS.md
     Output: SOLUTIONS.md + MITIGATION_ROADMAP.md — defenses that pass tests
 ```
@@ -56,7 +56,7 @@ Stage 3: SOLUTIONS AGENT (devstral-small-2:24b-cloud)
 ### Step 1 — Launch the Requirements Agent
 ```bash
 # Stage 1: Generate requirements from threat intelligence
-ollama run devstral-2:123b-cloud "$(cat <<'EOF'
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
 You are the requirements-agent. Generate concrete security requirements from the following threat intelligence.
 
 Context: [describe the threat — e.g., "A frontier model can autonomously find and exploit zero-day vulnerabilities. It chains multiple CVEs into RCE. Defenders must assume autonomous discovery."]
@@ -94,7 +94,7 @@ fi
 echo "Stage 1 input validated. Proceeding to Stage 2."
 
 # Stage 2: Risk analysis + test generation
-ollama run glm-5.1:cloud "$(cat <<'EOF'
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
 You are the risk-analysis-agent. Analyze requirements for attack vectors and generate red-team tests.
 
 Input: Read /tmp/ai-security-panel/REQUIREMENTS.md
@@ -135,7 +135,7 @@ fi
 echo "Stage 2 input validated. Proceeding to Stage 3."
 
 # Stage 3: Design solutions
-ollama run devstral-small-2:24b-cloud "$(cat <<'EOF'
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
 You are the solutions-agent. Design defensive solutions that pass the red-team tests.
 
 Input:

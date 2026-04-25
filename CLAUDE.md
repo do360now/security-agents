@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a defensive AI security system using the **advisor pattern** with Ollama models: a fast local executor drives the loop, a stronger cloud advisor is consulted at strategic decision points. The system helps defenders respond to AI-capable adversaries (e.g., Mythos-class autonomous exploit development).
+This is a defensive AI security system using the **advisor pattern** with the Claude model family: a faster executor (Sonnet 4.6 or Haiku 4.5) drives the loop, and a stronger advisor (Opus 4.7 / Opus 4.6 / Sonnet 4.6) is consulted at strategic decision points. The system helps defenders respond to AI-capable adversaries (e.g., Mythos-class autonomous exploit development).
 
 ## Architecture
 
 **7 agents** in `.claude/agents/*.md`, each with:
-- `executor` (local, fast) + `advisor` (cloud, strong reasoning)
+- `executor` (fast tier) + `advisor` (stronger tier) — both Anthropic-served Claude models
 - `integrity-hash-sha256` for agent integrity verification
 - Frontmatter contract for model selection
 
@@ -25,10 +25,19 @@ requirements-agent → risk-analysis-agent → solutions-agent
 make red-team-test          # Quick pass/fail summary
 make red-team-full          # Detailed per-test output
 
-# Run individual agents (mixed local + cloud setup)
-make start-security-agent   # Executor: qwen2.5:3b, Advisor: devstral-small-2:24b-cloud
+# Show per-agent executor/advisor pairing and launch command
+make start-security-agent     # Executor: claude-sonnet-4-6, Advisor: claude-opus-4-7
 make start-requirements-agent
 make start-solutions-agent
+make start-risk-analysis-agent
+make start-system-health-agent
+make start-maintenance-agent
+make start-security-panel
+
+# Launch Claude Code on a specific model (interactive session)
+make start-opus-4-7
+make start-sonnet-4-6
+make start-haiku-4-5
 
 # Verify controls
 ./verify-all-agents.sh
@@ -36,6 +45,23 @@ make start-solutions-agent
 ./validate-advisor-output.sh
 ./verify-skill-versions.sh
 ```
+
+## Advisor invocation
+
+Advisor calls are made via the Claude Code CLI in non-interactive print mode:
+
+```bash
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
+You are a security advisor. Respond in under 100 words, enumerated steps only.
+
+<stack>...</stack>
+<findings>...</findings>
+<question>...</question>
+EOF
+)"
+```
+
+This uses the caller's existing Anthropic authentication (OAuth or API key) — no separate credential store is needed.
 
 ## Critical Security Controls
 
@@ -45,7 +71,7 @@ make start-solutions-agent
    - See `ADVISOR_OUTPUT_CONTRACT.md` for the full contract
    - **OWASP ASI01 (Prompt Injection)**: defended by this validation
 
-2. **Model Allowlist**: Only models documented in `MODELS_ALLOWLIST.md` with SHA256 digests may be used
+2. **Model Allowlist**: Only Claude model IDs documented in `MODELS_ALLOWLIST.md` may be used. Because Claude models are Anthropic-served, integrity is via **exact-ID pinning + TLS** rather than a local weight digest.
 
 3. **Kill Switch**: `SECURITY_INCIDENT_RUNBOOK.md` — full termination procedure if agents are compromised
 
@@ -76,8 +102,8 @@ Frontmatter required fields:
 ---
 name: my-agent
 description: One-line purpose
-executor: <model>
-advisor: <model>
+executor: claude-sonnet-4-6
+advisor: claude-opus-4-7
 integrity-hash-sha256: SHA256:<hash>
 tools: [Bash, Read, Write, ...]
 skills: []
