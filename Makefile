@@ -149,6 +149,36 @@ start-security-agent:
 	@echo "Launch: claude --model claude-sonnet-4-6"
 	@echo "Advisor calls (from within the session): claude -p --model claude-opus-4-7 \"<prompt>\""
 
+start-tron-agent:
+	@echo "Agent: tron-agent (live intrusion detection — \"I fight for the Users\")"
+	@echo "Executor: claude-sonnet-4-6"
+	@echo "Advisor:  claude-opus-4-7"
+	@echo ""
+	@echo "Launch: claude --model claude-sonnet-4-6"
+	@echo "Advisor calls: claude -p --model claude-opus-4-7 \"<prompt>\""
+	@echo "Read-only by design — escalates to SECURITY_INCIDENT_RUNBOOK.md instead of containing."
+
+start-ares-agent:
+	@echo "Agent: ares-agent (outside-in adversary emulator)"
+	@echo "Executor: claude-sonnet-4-6"
+	@echo "Advisor:  claude-opus-4-7"
+	@echo ""
+	@echo "Launch: claude --model claude-sonnet-4-6"
+	@echo "Advisor calls: claude -p --model claude-opus-4-7 \"<prompt>\""
+	@echo "Output: /tmp/ai-security-panel/ATTACK_SCENARIOS.md (handoff to risk-analysis-agent)."
+
+start-clu-agent:
+	@echo "Agent: clu-agent (alignment & scope watchdog)"
+	@echo "Executor: claude-sonnet-4-6"
+	@echo "Advisor:  claude-opus-4-7"
+	@echo "Scope:    OWASP ASI02 at the INTENT level (system-health-agent covers tool-scope)."
+	@echo ""
+	@echo "Launch: claude --model claude-sonnet-4-6"
+	@echo "Advisor calls: claude -p --model claude-opus-4-7 \"<prompt>\""
+	@echo "Outputs: /tmp/ai-security-panel/clu-baselines.jsonl (rolling baselines)"
+	@echo "         /tmp/ai-security-panel/clu-verdict-log.jsonl (append-only verdict log)"
+	@echo "Read-only by design — advisory verdicts only, no authority to modify peer outputs."
+
 start-solutions-agent:
 	@echo "Agent: solutions-agent"
 	@echo "Executor: claude-sonnet-4-6"
@@ -174,12 +204,25 @@ start-risk-analysis-agent:
 	@echo "Advisor calls: claude -p --model claude-opus-4-7 \"<prompt>\""
 
 start-security-panel:
-	@echo "Agent: security-panel (orchestrator)"
+	@echo "Agent: security-panel (defensive orchestrator)"
+	@echo "Pipeline: requirements-agent → risk-analysis-agent → solutions-agent"
 	@echo "Executor: claude-opus-4-7"
 	@echo "Advisor:  claude-opus-4-6"
+	@echo "Outputs:  /tmp/ai-security-panel/"
 	@echo ""
 	@echo "Launch: claude --model claude-opus-4-7"
 	@echo "Advisor calls: claude -p --model claude-opus-4-6 \"<prompt>\""
+
+start-red-team-panel:
+	@echo "Agent: red-team-panel (offensive orchestrator)"
+	@echo "Pipeline: ares-agent → risk-analysis-agent → solutions-agent"
+	@echo "Executor: claude-opus-4-7"
+	@echo "Advisor:  claude-opus-4-6"
+	@echo "Outputs:  /tmp/ai-security-panel/red-team/"
+	@echo ""
+	@echo "Launch: claude --model claude-opus-4-7"
+	@echo "Advisor calls: claude -p --model claude-opus-4-6 \"<prompt>\""
+	@echo "Companion to start-security-panel — run both for high-stakes systems."
 
 start-system-health-agent:
 	@echo "Agent: system-health-agent"

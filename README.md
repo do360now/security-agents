@@ -35,29 +35,42 @@ make red-team-full
 
 ## Architecture
 
-The system uses 7 specialized agents, each with two components:
+The system uses 11 specialized agents, each with two components:
 
 | Component | Description |
 |-----------|-------------|
 | **Executor** | Faster Claude tier (Haiku 4.5 or Sonnet 4.6) driving the agent's loop |
 | **Advisor** | Stronger Claude tier (Sonnet 4.6 / Opus 4.6 / Opus 4.7) consulted at decision points |
 
-The **Security Panel** orchestrates a three-stage pipeline:
+Two orchestrators run three-stage pipelines that share Stage 2 and Stage 3:
+
+**Security Panel** (defensive, starts from policy):
 ```
 Requirements Agent → Risk Analysis Agent → Solutions Agent
+                       outputs → /tmp/ai-security-panel/
 ```
 
-Findings are written to `/tmp/ai-security-panel/` for durability before consulting the advisor.
+**Red Team Panel** (offensive, starts from adversary behavior):
+```
+ARES Agent → Risk Analysis Agent → Solutions Agent
+                       outputs → /tmp/ai-security-panel/red-team/
+```
+
+Both panels write durable artifacts to disk before each advisor call. Run both for high-stakes systems and reconcile the outputs in `CROSS_PANEL_REPORT.md`.
 
 ## Available Agents
 
 | Agent | Executor | Advisor | Purpose |
 |-------|----------|---------|---------|
-| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Vulnerability analysis |
+| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Static vulnerability analysis |
+| `tron-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Live intrusion detection (runtime defender) |
+| `ares-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Outside-in adversary emulation (Mythos-class) |
+| `clu-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Alignment & scope watchdog (intent-level ASI02 monitoring) |
 | `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Generate requirements from threats |
 | `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Risk analysis + red team tests |
 | `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Design mitigations |
-| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Orchestrates 3-stage pipeline |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Defensive 3-stage pipeline (requirements → risk → solutions) |
+| `red-team-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Offensive 3-stage pipeline (ares → risk → solutions) |
 | `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Monitor system health |
 | `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | System maintenance |
 

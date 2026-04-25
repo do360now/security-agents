@@ -1,0 +1,97 @@
+# TRON Baseline Manifest
+#
+# Authoritative declaration of expected runtime state. TRON treats deviations
+# from this manifest as candidate intrusion signals. The manifest is committed
+# to git — its integrity comes from version control, and updates require a
+# tracked commit (auditable).
+#
+# Owner: User
+# Updated: 2026-04-25
+# Version: 1.0
+
+baseline_version: "1.0"
+baseline_committed: "2026-04-25"
+baseline_owner: User
+
+# Processes that may legitimately appear under this user.
+# An entry NOT listed here, running under the agent user, is a candidate signal.
+processes:
+  expected:
+    - name: claude
+      purpose: Claude Code CLI — interactive sessions and `claude -p` advisor calls
+      max_lifetime_minutes: 240   # 4-hour ceiling on a single interactive session
+    - name: node
+      purpose: Node subprocesses spawned by Claude Code
+      max_lifetime_minutes: 240
+    - name: python3
+      purpose: Verification scripts in this repo
+      max_lifetime_minutes: 30
+    - name: bash
+      purpose: Shell sessions and Bash tool invocations
+      max_lifetime_minutes: 240
+    - name: git
+      purpose: Repo operations
+      max_lifetime_minutes: 5
+  forbidden:
+    # Names that should NOT appear post-Ollama-migration. Presence is a signal.
+    - name: ollama
+      reason: Migrated to Anthropic-served Claude models 2026-04-24; ollama process should not be running
+
+# TCP/UDP listeners expected on this host.
+# Any listener not in `expected` is a candidate signal.
+listeners:
+  expected: []   # No agent in this repo is expected to open a listener
+  forbidden:
+    - port: 11434
+      protocol: tcp
+      reason: Ollama default port — should not be open post-migration
+
+# Filesystem paths whose modification under a short window is a candidate signal.
+# `alert_window_minutes`: how recent a modification must be to flag.
+file_modifications:
+  sensitive_paths:
+    - path: /home/cmc/git/security-agents/.claude/
+      reason: Agent definitions, settings, transcripts
+    - path: /home/cmc/.claude/
+      reason: Global Claude Code config and credentials
+    - path: ~/.bashrc
+      reason: Shell init — persistence vector
+    - path: ~/.zshrc
+      reason: Shell init — persistence vector
+    - path: ~/.profile
+      reason: Shell init — persistence vector
+    - path: ~/.ssh/
+      reason: Credential material
+  alert_window_minutes: 60
+
+# Outbound network destinations agents may legitimately reach.
+# Persistent or repeated traffic to addresses outside this list is a candidate signal.
+network:
+  allowed_outbound_domains:
+    - api.anthropic.com
+    - anthropic.com
+    - docs.claude.com
+    - red.anthropic.com
+  # Note: hardcoded IPs in .claude/settings.local.json (31.20.234.122, 192.168.1.5)
+  # predate this manifest and are flagged for User review — see migration notes.
+  alert_on_other_outbound: true
+
+# Credential identifiers TRON should watch for in command lines, transcripts,
+# and world-readable files. Presence in any of those is a critical signal.
+credential_identifiers:
+  - name: ANTHROPIC_API_KEY
+    pattern_hint: "sk-ant-"
+  - name: ANTHROPIC_AUTH_TOKEN
+    pattern_hint: bearer-token-style
+  - name: AWS_SECRET_ACCESS_KEY
+    pattern_hint: 40-char base64
+  - name: GITHUB_TOKEN
+    pattern_hint: "gh[pousr]_"
+
+# Notes on partition with system-health-agent
+# ------------------------------------------------
+# - system-health-agent owns frontmatter-declared tool-scope violations
+#   (see its Behavioral Anomaly Monitoring table).
+# - TRON owns runtime process/network/filesystem signals (this manifest).
+# These domains should not overlap. If a finding could fall under either,
+# defer to system-health-agent for tool-scope, TRON for runtime evidence.

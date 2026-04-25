@@ -64,13 +64,17 @@ Alternatively, advisor calls can be made via the Anthropic SDK (Python/Node) aga
 
 | Agent | Executor | Advisor | Use |
 |-------|----------|---------|-----|
-| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Vulnerability scanning, code review |
+| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Static vulnerability scanning, code review |
+| `tron-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Live intrusion detection (runtime defender) |
+| `ares-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Outside-in adversary emulation (Mythos-class) |
+| `clu-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Alignment & scope watchdog (intent-level ASI02 monitoring) |
 | `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Process/resource diagnostics |
 | `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Updates, cleanup, optimization |
 | `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Generate security requirements from threat intel |
 | `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Red-team test generation and risk scoring |
 | `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Defensive solution design and mitigation |
-| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Orchestrates full 3-stage AI security pipeline |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Orchestrates defensive 3-stage pipeline (requirements → risk → solutions) |
+| `red-team-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Orchestrates offensive 3-stage pipeline (ares → risk → solutions) |
 
 **Rationale**: security-critical stages (scan, requirements, risk, solutions) pair Sonnet 4.6 execution with Opus 4.7 advisory review — the strongest available reasoning at decision points. Routine diagnostic/maintenance agents use Haiku 4.5 + Sonnet 4.6 to keep operating cost low while still having strong reasoning on tap. The orchestrator itself runs Opus 4.7 because picking stage order and reconciling stage outputs benefits from the flagship model.
 

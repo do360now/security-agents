@@ -8,15 +8,17 @@ This is a defensive AI security system using the **advisor pattern** with the Cl
 
 ## Architecture
 
-**7 agents** in `.claude/agents/*.md`, each with:
+**11 agents** in `.claude/agents/*.md`, each with:
 - `executor` (fast tier) + `advisor` (stronger tier) — both Anthropic-served Claude models
 - `integrity-hash-sha256` for agent integrity verification
 - Frontmatter contract for model selection
 
-**Security Panel** (`security-panel`) orchestrates a 3-stage pipeline writing to `/tmp/ai-security-panel/`:
-```
-requirements-agent → risk-analysis-agent → solutions-agent
-```
+Two 3-stage orchestrator panels share Stages 2 and 3:
+
+- **`security-panel`** (defensive) — `requirements-agent → risk-analysis-agent → solutions-agent`, writes to `/tmp/ai-security-panel/`
+- **`red-team-panel`** (offensive) — `ares-agent → risk-analysis-agent → solutions-agent`, writes to `/tmp/ai-security-panel/red-team/`
+
+Run both for high-stakes systems; reconcile outputs in `CROSS_PANEL_REPORT.md`.
 
 ## Commands
 

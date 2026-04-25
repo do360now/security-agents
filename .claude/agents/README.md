@@ -10,13 +10,17 @@ Most work on agentic tasks is mechanical (listing files, running commands, readi
 
 | Agent | Executor | Advisor | Description |
 |-------|----------|---------|-------------|
-| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Vulnerability scan, code review |
+| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Static vulnerability scan, code review |
+| `tron-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Live intrusion detection (runtime defender) |
+| `ares-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Outside-in adversary emulation (attack scenarios) |
+| `clu-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Alignment & scope watchdog (intent-level ASI02 monitoring) |
 | `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Process/resource diagnostics |
 | `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Updates, cleanup, optimization |
 | `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Requirements from threat intel |
 | `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Risk scoring, red-team tests |
 | `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Defensive solution design |
-| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | 3-stage AI security pipeline |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Defensive 3-stage pipeline (requirements → risk → solutions) |
+| `red-team-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Offensive 3-stage pipeline (ares → risk → solutions) |
 
 Claude Code itself can be launched with any of these models (`claude --model claude-sonnet-4-6`). The agent shells out to other Claude models for advisor consultations via `claude -p --model ...` or via the Anthropic SDK. Pairing (fast ↔ strong) matters more than exact names — swap tiers based on cost/latency needs.
 

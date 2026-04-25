@@ -59,15 +59,21 @@ EOF
 
 ## Behavioral Anomaly Monitoring
 
+`system-health-agent` owns **frontmatter-declared tool-scope and model-allowlist violations**. Runtime process/network/filesystem signals are owned by `tron-agent` (see TRON's "Partition with system-health-agent" section). These domains do not overlap.
+
 ### Monitored Agent Scopes
 
 | Agent | Expected Tools | Alert Threshold |
 |-------|----------------|-----------------|
 | security-agent | Read, Grep, Glob | Any Write, Edit, Bash attempt |
+| tron-agent | Read, Grep, Glob, Bash | Any Write, Edit, WebFetch, WebSearch attempt |
+| ares-agent | Read, Write, Grep, Glob, Bash, WebFetch, WebSearch | Any Edit attempt |
+| clu-agent | Read, Grep, Glob, Bash | Any Write, Edit, WebFetch, WebSearch attempt |
 | requirements-agent | Read, Write, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
 | risk-analysis-agent | Read, Write, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
 | solutions-agent | Read, Write, Edit, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
 | security-panel | Read, Write, Edit, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
+| red-team-panel | Read, Write, Edit, Bash, Grep, Glob, WebFetch, WebSearch | None — full scope |
 | maintenance-agent | Read, Write, Edit, Bash, Grep, Glob | None — full scope |
 | system-health-agent | Read, Grep, Bash, Glob | Any Write, Edit, WebFetch attempt |
 
