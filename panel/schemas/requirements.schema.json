@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Stage 1 Requirements Output",
+  "description": "Schema for the security requirements stage output. Enforces REQ-NNN IDs, severity tiers, verification methods, and control areas.",
+  "type": "object",
+  "required": ["requirements", "summary", "stage_summary"],
+  "additionalProperties": false,
+  "properties": {
+    "requirements": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "threat_addressed",
+          "target_component",
+          "severity",
+          "verification_method",
+          "control_area"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^REQ-[0-9]{3}$",
+            "description": "Unique requirement identifier matching REQ-NNN format"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 120
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "threat_addressed": {
+            "type": "string",
+            "minLength": 10,
+            "description": "The specific threat or attack vector this requirement defends against"
+          },
+          "target_component": {
+            "type": "string",
+            "minLength": 3,
+            "description": "The system component, file path, or layer this requirement applies to"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "verification_method": {
+            "type": "string",
+            "enum": [
+              "unit-test",
+              "integration-test",
+              "code-audit",
+              "config-check",
+              "runtime-monitor"
+            ]
+          },
+          "control_area": {
+            "type": "string",
+            "enum": [
+              "ai-trust-boundary",
+              "secrets",
+              "network-rpc",
+              "trade-path",
+              "observability",
+              "supply-chain",
+              "mode-isolation",
+              "other"
+            ]
+          },
+          "related_reqs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^REQ-[0-9]{3}$"
+            },
+            "description": "Optional list of related requirement IDs"
+          },
+          "research_track_note": {
+            "type": "string",
+            "description": "Optional note for requirements that need further research before implementation"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["count", "severity_distribution", "highest_leverage_req_ids"],
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 30
+        },
+        "severity_distribution": {
+          "type": "object",
+          "required": ["critical", "high", "medium", "low"],
+          "additionalProperties": false,
+          "properties": {
+            "critical": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "low": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "highest_leverage_req_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^REQ-[0-9]{3}$"
+          },
+          "minItems": 1,
+          "description": "IDs of requirements with the highest security leverage (defend most attack surface)"
+        }
+      }
+    },
+    "stage_summary": {
+      "type": "string",
+      "maxLength": 1200,
+      "description": "200-word-max summary for downstream stages describing key requirements and threat coverage"
+    }
+  }
+}

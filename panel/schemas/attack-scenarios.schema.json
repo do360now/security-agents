@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ARES Stage 1 Attack Scenarios Output",
+  "description": "Schema for the attack-scenarios stage output from the offensive panel. Enforces ATK-NNN IDs, required narrative fields, severity, and detection-evasion analysis.",
+  "type": "object",
+  "required": ["scenarios", "summary", "stage_summary"],
+  "additionalProperties": false,
+  "properties": {
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "objective",
+          "entry",
+          "primitives",
+          "chain",
+          "defender_visibility",
+          "evasion",
+          "suggested_test",
+          "target_rank",
+          "severity",
+          "novelty"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^ATK-[0-9]{3}$",
+            "description": "Unique scenario identifier matching ATK-NNN format"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 120,
+            "description": "One-line scenario title"
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Attacker goal — exfil what / RCE where / persistence in what"
+          },
+          "entry": {
+            "type": "string",
+            "minLength": 5,
+            "description": "Attack vector — file path, endpoint, dependency, or input source"
+          },
+          "primitives": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 3
+            },
+            "description": "Ordered list of exploit primitives used in the chain"
+          },
+          "chain": {
+            "type": "string",
+            "minLength": 20,
+            "description": "Ordered narrative — entry to primitive to escalation to objective"
+          },
+          "defender_visibility": {
+            "type": "string",
+            "minLength": 10,
+            "description": "What shows up in logs, monitoring, or alerts during this scenario"
+          },
+          "evasion": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Techniques an attacker would use to avoid the visibility noted in defender_visibility"
+          },
+          "suggested_test": {
+            "type": "string",
+            "minLength": 10,
+            "description": "Handoff for risk-analysis-agent — input, action, expected pass/fail"
+          },
+          "target_rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Exploit likelihood rank (1 = highest priority target)"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"],
+            "description": "Scenario severity rating"
+          },
+          "novelty": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "description": "How novel/unexpected the chain is (1 = well-known, 10 = highly novel)"
+          },
+          "cve_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 5
+            },
+            "description": "Optional CVE references relevant to this scenario"
+          },
+          "prerequisites": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 3
+            },
+            "description": "Optional preconditions the attacker must satisfy before executing this chain"
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["count", "critical_count", "top_chain_id", "attack_classes_covered"],
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Total number of ATK-* scenarios produced"
+        },
+        "critical_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of scenarios with severity critical"
+        },
+        "top_chain_id": {
+          "type": "string",
+          "pattern": "^ATK-[0-9]{3}$",
+          "description": "ID of the scenario with the highest combined target_rank and severity"
+        },
+        "attack_classes_covered": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 3
+          },
+          "description": "High-level attack classes represented across all scenarios (e.g., memory-safety, supply-chain, prompt-injection, auth-bypass)"
+        }
+      }
+    },
+    "stage_summary": {
+      "type": "string",
+      "maxLength": 1200,
+      "description": "200-word-max summary for downstream stages describing the attack surface, top chains, and coverage. Downstream stages read this rather than re-reading all scenarios."
+    }
+  }
+}

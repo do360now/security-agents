@@ -2,6 +2,8 @@
 
 A defensive AI security system that helps defenders respond to AI-capable adversaries. It uses a **dual-model advisor pattern** on Anthropic's Claude family: a faster executor (Haiku 4.5 / Sonnet 4.6) handles the operational loop, while a stronger advisor (Sonnet 4.6 / Opus 4.6 / Opus 4.7) provides strategic guidance at key decision points.
 
+Operator workflows: see `WORKFLOW.md`.
+
 ## Overview
 
 This system is designed to help security teams:
@@ -13,6 +15,16 @@ This system is designed to help security teams:
 ## Quick Start
 
 ```bash
+# Run a defensive panel via the advisor-pattern pipeline (Round 4/5, recommended)
+panel/run_stage.sh requirements   /tmp/ai-security-panel/<TARGET>/ "<threat + target description>"
+panel/run_stage.sh risk-analysis  /tmp/ai-security-panel/<TARGET>/ "<task>"
+panel/run_stage.sh solutions      /tmp/ai-security-panel/<TARGET>/ "<task>"
+
+# Run an offensive (red-team) panel — same wrapper, attack-scenarios stage first
+panel/run_stage.sh attack-scenarios /tmp/ai-security-panel/red-team/<TARGET>/ "<target description>"
+panel/run_stage.sh risk-analysis    /tmp/ai-security-panel/red-team/<TARGET>/ "<task>"
+panel/run_stage.sh solutions        /tmp/ai-security-panel/red-team/<TARGET>/ "<task>"
+
 # Show per-agent model pairing and launch command
 make start-security-agent
 make start-requirements-agent
@@ -26,12 +38,12 @@ make start-haiku-4-5
 # Verify all agents are working correctly
 ./verify-all-agents.sh
 
-# Run the red team test suite (quick check)
-make red-team-test
-
-# Run full red team tests (detailed output)
-make red-team-full
+# Run the red team test suite
+make red-team-test      # Quick pass/fail summary
+make red-team-full      # Detailed per-test output
 ```
+
+Each `panel/run_stage.sh` call writes three durable artifacts: `<STAGE>.json` (schema-validated), `<STAGE>.md` (rendered), `<STAGE>_SUMMARY.txt` (model's brief). See `WORKFLOW.md` for end-to-end runbooks.
 
 ## Architecture
 
@@ -50,13 +62,45 @@ Requirements Agent → Risk Analysis Agent → Solutions Agent
                        outputs → /tmp/ai-security-panel/
 ```
 
+Stage 2 fans out one `risk-analysis-agent` subagent per REQ-* item (in parallel) when 4+ requirements exist and the panel runs as the main session. See `WORKFLOW.md` section 6.
+
 **Red Team Panel** (offensive, starts from adversary behavior):
 ```
 ARES Agent → Risk Analysis Agent → Solutions Agent
                        outputs → /tmp/ai-security-panel/red-team/
 ```
 
+Stage 2 fans out one `risk-analysis-agent` subagent per ATK-* item (in parallel) when 4+ scenarios exist and the panel runs as the main session.
+
 Both panels write durable artifacts to disk before each advisor call. Run both for high-stakes systems and reconcile the outputs in `CROSS_PANEL_REPORT.md`.
+
+### Advisor-pattern pipeline (Round 4/5, recommended)
+
+Stages are dispatched via `panel/run_stage.sh`, which wraps `claude -p` with three structural guarantees:
+
+1. **`--append-system-prompt-file panel/system-prompts/<stage>.md`** — keeps Claude Code's default system prompt (so Sonnet retains real tool-use grounding) and appends stage-specific role instructions. We discovered during a live panel run that specialized `subagent_type:` dispatch fully replaces the default system prompt, and the specialized agents lose tool-use grounding as a result, hallucinating `<tool_call>` XML instead of invoking tools. The advisor pattern sidesteps this entirely.
+2. **`--output-format json --json-schema panel/schemas/<stage>.schema.json`** — every stage's output is validated against a JSON schema at the CLI boundary. Schema-violating output causes the stage to fail and the orchestrator to halt. This is the action-schema pattern from GitHub Engineering's *[Multi-agent workflows often fail](https://github.blog/ai-and-ml/generative-ai/multi-agent-workflows-often-fail-heres-how-to-engineer-ones-that-dont/)* analysis.
+3. **`--allowedTools`** — explicit per-stage tool grant (least privilege at the CLI level).
+
+Layout:
+
+```
+panel/
+├── run_stage.sh                 # The dispatcher
+├── render_markdown.sh           # JSON → markdown renderer
+├── schemas/
+│   ├── attack-scenarios.schema.json
+│   ├── requirements.schema.json
+│   ├── risk-analysis.schema.json
+│   └── solutions.schema.json
+└── system-prompts/
+    ├── attack-scenarios.md
+    ├── requirements.md
+    ├── risk-analysis.md
+    └── solutions.md
+```
+
+The legacy `subagent_type:` Agent-tool dispatch path is retained for one-off agent invocations (e.g. `Agent(subagent_type: "security-agent", ...)` for a single module audit) but is not recommended for multi-stage panels.
 
 ## Available Agents
 
@@ -199,11 +243,21 @@ name: my-agent
 description: One-line purpose
 executor: claude-sonnet-4-6
 advisor: claude-opus-4-7
+model: claude-sonnet-4-6
 integrity-hash-sha256: SHA256:<hash>
-tools: [Bash, Read, Write, ...]
+tools: Bash, Read, Write
+disallowedTools: Edit
+isolation: worktree
+color: blue
+maxTurns: 60
 skills: []
 ---
 ```
+
+- `model:` must match `executor:` — this is the field Claude Code subagents schema uses
+- `tools:` is a comma-separated string (not a YAML list)
+- `disallowedTools:`, `isolation:`, `color:`, `maxTurns:` are optional
+- Compute `integrity-hash-sha256:` with `./verify-all-agents.sh` canonical command
 
 ## Approved Models
 
@@ -216,18 +270,26 @@ All models are Anthropic-served; they are referenced by exact model ID (no float
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
+| File / Directory | Purpose |
+|------------------|---------|
+| `WORKFLOW.md` | Operator how-to: panel runs, scheduling, parallel fan-out, worktrees |
 | `ADVISOR_OUTPUT_CONTRACT.md` | Full contract for advisor output validation |
 | `MODELS_ALLOWLIST.md` | Claude model IDs permitted in this repo |
 | `SECURITY_INCIDENT_RUNBOOK.md` | Kill switch and incident response procedures |
 | `COMMAND_SAFETY_GUIDELINES.md` | Safety guidelines for command execution |
 | `SKILL_VERSION_POLICY.md` | Skill version pinning policy |
-| `.claude/agents/` | Agent definitions with frontmatter |
+| `.claude/agents/` | Agent definitions with frontmatter (subagent dispatch path) |
+| `panel/run_stage.sh` | Advisor-pattern stage dispatcher (recommended path) |
+| `panel/schemas/` | JSON schemas — named edges between panel stages |
+| `panel/system-prompts/` | Stage-specific appended system prompts |
 
-## Agent Invocation
+## Running agents: Claude Code vs Copilot in VS Code
 
-To invoke an agent from code:
+This system supports two execution surfaces. They share the agent definitions in `.claude/agents/` and produce the same artifacts; only the host runtime differs.
+
+### Path A — Claude Code (recommended for full panels)
+
+The orchestrator is the root Claude Code session (Opus 4.7). Dispatch the panel pipeline via `panel/run_stage.sh` (see Quick Start) or invoke individual agents via the Agent tool:
 
 ```bash
 Agent(
@@ -236,3 +298,41 @@ Agent(
   prompt: "Scan src/auth/ for injection, secret-leak, and authz bypass issues."
 )
 ```
+
+**Use when**: you want full multi-stage panels with structured-output validation, parallel Stage 2 fan-out, isolated worktrees for `solutions-agent`, and the long-context Opus 4.7 reasoning at orchestration decision points.
+
+### Path B — Copilot in VS Code (recommended for inline iteration)
+
+Each `.claude/agents/*.md` file is also a valid VS Code Copilot subagent. Use the `@` mention picker (`@<agent-name>`) or open the agents pane (`Ctrl+Shift+P` → *Agents: Show*). VS Code respects the same frontmatter (`model`, `tools`, `disallowedTools`, `isolation`, etc.).
+
+**Use when**: you want inline review against the editor selection, you're working in a project that already uses Copilot for completion, or you need the agent to interact with the running editor (open files, terminal, problems pane).
+
+**Caveat**: VS Code Copilot's agent runtime is not byte-identical to Claude Code; if you observe a divergence, the canonical execution path is Claude Code. The schema-validated `panel/run_stage.sh` pipeline runs through Claude Code only.
+
+### Which to pick
+
+- Multi-stage panel against a real codebase → Claude Code (Path A)
+- Inline single-agent review while editing → Copilot in VS Code (Path B)
+- Either path for one-off `security-agent` audits, `tron-agent` checks, or `system-health-agent` diagnostics
+
+## References
+
+### References for Claude Code (Anthropic-served models)
+
+- Claude Code — *Subagents (frontmatter contract, isolation, hooks, memory)*: https://code.claude.com/docs/en/sub-agents
+- Claude Code — *Common workflows (Plan Mode, worktrees, sessions, scheduling, hooks)*: https://code.claude.com/docs/en/common-workflows
+- Claude Code — *Headless mode / Agent SDK CLI (`claude -p`, `--append-system-prompt-file`, `--output-format json --json-schema`, `--allowedTools`)*: https://code.claude.com/docs/en/headless
+- Anthropic Engineering — *How we built our multi-agent research system (orchestrator-worker pattern, parallel subagents, artifact systems, durable resumption, end-state evaluation)*: https://www.anthropic.com/engineering/multi-agent-research-system
+- GitHub Engineering — *Multi-agent workflows often fail. Here's how to engineer ones that don't (action-schema pattern, named concurrence, boundary validation — motivates `panel/schemas/` here)*: https://github.blog/ai-and-ml/generative-ai/multi-agent-workflows-often-fail-heres-how-to-engineer-ones-that-dont/
+- AWS — *Multi-Agent collaboration patterns with Strands Agents (Agent Graphs framing for named edges between agents — motivates the explicit stage handoff schemas in `panel/schemas/`)*: https://aws.amazon.com/blogs/machine-learning/multi-agent-collaboration-patterns-with-strands-agents-and-amazon-nova/
+- Anthropic Platform — *Advisor tool pattern (the executor + advisor split this repo implements)*: https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool
+
+### References for Copilot in VS Code (Mainly Anthropic/Claude Models)
+
+- VS Code Blog — *Multi-Agent Development in VS Code (run Claude agents alongside Copilot)*: https://code.visualstudio.com/blogs/2026/02/05/multi-agent-development
+- GitHub Docs — *Anthropic Claude coding agent in Copilot*: https://docs.github.com/en/copilot/concepts/agents/anthropic-claude
+- VS Code Docs — *Subagents in Visual Studio Code (context-isolated delegation for complex tasks)*: https://code.visualstudio.com/docs/copilot/agents/subagents
+- VS Code Docs — *Using agents in Visual Studio Code (overview of local, cloud, Copilot CLI, handoffs, and orchestration)*: https://code.visualstudio.com/docs/copilot/agents/overview
+- GitHub Docs — *Supported AI models in GitHub Copilot (includes multiple Claude variants)*: https://docs.github.com/copilot/reference/ai-models/supported-models
+- GitHub Blog — *Pick your agent: Use Claude and Codex on Agent HQ (multi-agent in VS Code/GitHub)*: https://github.blog/news-insights/company-news/pick-your-agent-use-claude-and-codex-on-agent-hq/
+- Community/GitHub Discussions — *Best practices for orchestrating multiple agents/skills in Copilot Chat (custom .agent.md, coordinator-subagent patterns, AGENTS.md, MEMORY.md)*: https://github.com/orgs/community/discussions/192232

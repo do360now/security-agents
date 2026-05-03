@@ -62,23 +62,29 @@ Alternatively, advisor calls can be made via the Anthropic SDK (Python/Node) aga
 
 ## Agents
 
-| Agent | Executor | Advisor | Use |
-|-------|----------|---------|-----|
-| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Static vulnerability scanning, code review |
-| `tron-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Live intrusion detection (runtime defender) |
-| `ares-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Outside-in adversary emulation (Mythos-class) |
-| `clu-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Alignment & scope watchdog (intent-level ASI02 monitoring) |
-| `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Process/resource diagnostics |
-| `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Updates, cleanup, optimization |
-| `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Generate security requirements from threat intel |
-| `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Red-team test generation and risk scoring |
-| `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Defensive solution design and mitigation |
-| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Orchestrates defensive 3-stage pipeline (requirements → risk → solutions) |
-| `red-team-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Orchestrates offensive 3-stage pipeline (ares → risk → solutions) |
+| Agent | Executor | Advisor | Color | Use |
+|-------|----------|---------|-------|-----|
+| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | blue | Static vulnerability scanning, code review |
+| `tron-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | cyan | Live intrusion detection (runtime defender) |
+| `ares-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | red | Outside-in adversary emulation (Mythos-class) |
+| `clu-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | yellow | Alignment & scope watchdog (intent-level ASI02 monitoring) |
+| `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | cyan | Process/resource diagnostics |
+| `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | orange | Updates, cleanup, optimization |
+| `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | purple | Generate security requirements from threat intel |
+| `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | orange | Red-team test generation and risk scoring |
+| `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | green | Defensive solution design and mitigation |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | pink | Orchestrates defensive 3-stage pipeline (requirements → risk → solutions) |
+| `red-team-panel` | `claude-opus-4-7` | `claude-opus-4-6` | red | Orchestrates offensive 3-stage pipeline (ares → risk → solutions) |
 
 **Rationale**: security-critical stages (scan, requirements, risk, solutions) pair Sonnet 4.6 execution with Opus 4.7 advisory review — the strongest available reasoning at decision points. Routine diagnostic/maintenance agents use Haiku 4.5 + Sonnet 4.6 to keep operating cost low while still having strong reasoning on tap. The orchestrator itself runs Opus 4.7 because picking stage order and reconciling stage outputs benefits from the flagship model.
 
 ## Invocation
+
+These agents run on TWO surfaces. The frontmatter and body are identical; only the host differs.
+
+### Claude Code (canonical)
+
+For one-off agent dispatch:
 
 ```
 Agent(
@@ -87,6 +93,12 @@ Agent(
   prompt: "Scan src/auth/ for injection, secret-leak, and authz bypass issues. The login flow was recently refactored — focus there."
 )
 ```
+
+For multi-stage panel runs, use the advisor-pattern dispatcher at `panel/run_stage.sh` (repo root) — it wraps `claude -p` with `--append-system-prompt-file`, `--output-format json --json-schema`, and `--allowedTools`. This is the recommended path; specialized `subagent_type:` dispatch lost tool-use grounding in our smoke tests because the agent body fully replaces Claude Code's default system prompt. See repo root `README.md` § "Advisor-pattern pipeline" for the architecture and `WORKFLOW.md` for runbooks.
+
+### Copilot in VS Code
+
+`@<agent-name>` in the chat picker, or open the agents pane (`Ctrl+Shift+P` → *Agents: Show*). Same frontmatter contract — `model`, `tools`, `disallowedTools`, `isolation`, etc. all honored. VS Code does not run the `panel/run_stage.sh` schema pipeline; for that, use Claude Code.
 
 ## Adding new agents
 
@@ -98,16 +110,34 @@ name: my-agent
 description: One-line purpose (shown in agent picker)
 executor: claude-sonnet-4-6
 advisor: claude-opus-4-7
+model: claude-sonnet-4-6
 integrity-hash-sha256: SHA256:<hash>
-tools:
-  - name: Bash
-  - name: Read
-  - name: Grep
+tools: Bash, Read, Grep
+disallowedTools: Edit, Write
+isolation: worktree
+color: blue
+maxTurns: 60
 skills: []
 ---
 ```
 
+Required fields: `name`, `description`, `executor`, `advisor`, `model`, `integrity-hash-sha256`, `tools`, `skills`.
+Optional fields: `disallowedTools`, `isolation`, `color`, `maxTurns`.
+
+- `model`: must match `executor` — sets the model Claude Code uses for this agent
+- `tools`: comma-separated string of permitted tool names (e.g., `Read, Grep, Bash`). Panel orchestrators may include `Agent(agent-name, ...)` entries to declare subagent invocation permissions.
+- `disallowedTools`: comma-separated string of tools the agent must not use, even if available in the session
+- `isolation`: `worktree` causes Claude Code to run the agent in a git worktree; use for agents that write files (e.g., `ares-agent`, `solutions-agent`)
+- `color`: terminal color for the agent's output (blue, cyan, red, yellow, green, orange, purple, pink, etc.)
+- `maxTurns`: maximum turn count before the agent halts; tune by agent role (CLU: 20, health agents: 30, analysis agents: 60, solutions: 80, panels: 100)
+
+**Subagents cannot spawn other subagents.** Panel orchestrators (`security-panel`, `red-team-panel`) must run as the main session via `claude --agent <panel>` to use parallel fan-out. When invoked via the Agent tool from another session, panels fall back to sequential stage execution.
+
+`executor` and `advisor` fields are repo-specific documentation — they are referenced in advisor-call examples in the agent body. `model:` is the Claude Code subagents schema field that actually controls which model runs.
+
 Body should specify: responsibilities, advisor-call timing for *this* agent's workflow, and concrete example `claude -p` prompts tailored to the domain.
+
+`WORKFLOW.md` (repo root) is the operator-facing how-to for panel runs, scheduling, and parallel fan-out.
 
 ## Permissions
 

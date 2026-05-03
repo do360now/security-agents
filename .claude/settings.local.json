@@ -23,7 +23,29 @@
       "Bash(awk '{print $3}')",
       "Bash(git ls-files *)",
       "Bash(git check-ignore *)",
-      "Bash(make red-team-summary *)"
+      "Bash(make red-team-summary *)",
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(./verify-all-agents.sh *)",
+      "Bash(./validate-makefile-models.sh)",
+      "Read(//tmp/ai-security-panel/CMC_KRAKEN_BIT_TRADE/**)",
+      "Bash(sed -n '50,100p' /home/cmc/git/Bit/CMC_KRAKEN_BIT_TRADE/agent_executor.py)",
+      "Bash(sed -n '255,310p' /home/cmc/git/Bit/CMC_KRAKEN_BIT_TRADE/kraken_api.py)",
+      "Read(//tmp/ai-security-panel/**)",
+      "WebFetch(domain:github.blog)",
+      "WebFetch(domain:aws.amazon.com)",
+      "Bash(chmod +x *)",
+      "Bash(python3 -c 'import json; json.load\\(open\\('\\\\''__TRACKED_VAR__'\\\\''\\)\\); print\\('\\\\''OK:'\\\\'', '\\\\''__TRACKED_VAR__'\\\\''\\)')",
+      "Bash(bash -n panel/run_stage.sh)",
+      "Bash(bash -n panel/render_markdown.sh)",
+      "Bash(python3 *)",
+      "Bash(bash -n /home/cmc/git/security-agents/panel/run_stage.sh)",
+      "Bash(bash -n /home/cmc/git/security-agents/panel/render_markdown.sh)",
+      "Bash(mkdir -p /tmp/ai-security-panel/smoke_round4/)",
+      "Bash(timeout 90 panel/run_stage.sh requirements /tmp/ai-security-panel/smoke_round4/ \"SMOKE TEST. Generate exactly 4 placeholder REQ entries for a hypothetical Python web app with: \\(a\\) auth bypass, \\(b\\) SQL injection, \\(c\\) hardcoded secret, \\(d\\) missing TLS. Each REQ should have id \\(REQ-001..004\\), title, description \\(50+ chars\\), threat_addressed, target_component, severity \\(mix critical/high/medium\\), verification_method, and control_area. Return JSON conforming to the requirements schema. This is a pipeline smoke test — be brief, don't call any advisor, don't read any files. Just return the structured JSON output.\")",
+      "Bash(rm -f /tmp/ai-security-panel/smoke_round4/*)",
+      "Bash(timeout 90 panel/run_stage.sh requirements /tmp/ai-security-panel/smoke_round4/ \"SMOKE TEST. Return JSON with 4 placeholder REQ entries: REQ-001 auth bypass critical, REQ-002 SQL injection critical, REQ-003 hardcoded secret high, REQ-004 missing TLS high. Each with required schema fields, brief description \\(50+ chars\\). Be terse. No advisor calls, no file reads.\")",
+      "Bash(panel/render_markdown.sh requirements *)",
+      "Bash(sed -i \"s|printf '- |printf -- '- |g\" panel/render_markdown.sh)"
     ]
   }
 }

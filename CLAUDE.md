@@ -20,6 +20,12 @@ Two 3-stage orchestrator panels share Stages 2 and 3:
 
 Run both for high-stakes systems; reconcile outputs in `CROSS_PANEL_REPORT.md`.
 
+Stage 2 risk analysis fans out across REQ-*/ATK-* in parallel when invoked as the main session — see `WORKFLOW.md`.
+
+**Recommended dispatch path (Round 4/5, smoke-tested end-to-end)**: panel stages are run through `panel/run_stage.sh`, which wraps `claude -p` with `--append-system-prompt-file panel/system-prompts/<stage>.md`, `--output-format json --json-schema panel/schemas/<stage>.schema.json`, and `--allowedTools <stage-specific list>`. This preserves Claude Code's default system prompt (so Sonnet retains real tool-use grounding) and validates each stage's output at the CLI boundary. Round 5 extended this to the offensive panel via the `attack-scenarios` stage. The legacy `subagent_type:` Agent-tool dispatch path is retained for one-off agent invocations but specialized subagent dispatch lost tool-use grounding in our smoke tests — prefer `panel/run_stage.sh` for multi-stage panels. See `WORKFLOW.md` for full runbooks.
+
+**Dual runtime**: agents in `.claude/agents/` run on both Claude Code (canonical) and Copilot in VS Code (via the `@` mention picker / agents pane). Same frontmatter, same artifacts. The schema-validated `panel/run_stage.sh` pipeline runs through Claude Code only. See `README.md` § "Running agents: Claude Code vs Copilot in VS Code".
+
 ## Commands
 
 ```bash
@@ -67,6 +73,11 @@ This uses the caller's existing Anthropic authentication (OAuth or API key) — 
 
 ## Critical Security Controls
 
+See `WORKFLOW.md` for operator workflows (panel runs, scheduling, parallel fan-out).
+
+- **Main session as orchestrator**: Panels (`security-panel`, `red-team-panel`) achieve full parallel fan-out only when invoked as the main session via `claude --agent <panel>`. Subagent invocation falls back to sequential execution. See `WORKFLOW.md`.
+- **IDE diagnostic note**: Some IDE schemas flag full Claude model IDs (`claude-sonnet-4-6`, `claude-opus-4-7`) in `model:` frontmatter as "unknown" because they only know the aliases (`sonnet`, `opus`, `haiku`). This is a false positive — full IDs are documented as valid in the Claude Code sub-agents reference and are REQUIRED by `MODELS_ALLOWLIST.md` for exact-ID pinning. Do not switch to aliases.
+
 1. **Advisor Output Validation** (MANDATORY before acting on advisor responses):
    - Run `validate-advisor-output.sh` — rejects raw bash, shell metacharacters, redirection
    - Advisor responses must be enumerated steps only, no compound commands
@@ -87,7 +98,11 @@ This uses the caller's existing Anthropic authentication (OAuth or API key) — 
 
 7. **EU AI Act Compliance**: Full requirements take effect **August 2, 2026** — requires documented adversarial testing for high-risk AI systems
 
+8. **JSON schema validation at stage boundaries (Round 4)**: every panel stage's output is validated against a schema in `panel/schemas/`. Schema-violating output causes the stage to fail and the orchestrator to halt — implementing the action-schema pattern from GitHub's multi-agent engineering guidance.
+
 ## Agent Invocation
+
+For one-off audits, dispatch a single agent via the Agent tool (Claude Code) or `@<agent-name>` (Copilot in VS Code):
 
 ```bash
 Agent(
@@ -96,6 +111,16 @@ Agent(
   prompt: "Scan src/auth/ for injection, secret-leak, and authz bypass issues."
 )
 ```
+
+For full multi-stage panels, use the advisor-pattern dispatcher (Claude Code only):
+
+```bash
+panel/run_stage.sh requirements   /tmp/ai-security-panel/<TARGET>/ "<task>"
+panel/run_stage.sh risk-analysis  /tmp/ai-security-panel/<TARGET>/ "<task>"
+panel/run_stage.sh solutions      /tmp/ai-security-panel/<TARGET>/ "<task>"
+```
+
+For an offensive run, swap `requirements` for `attack-scenarios` and use `/tmp/ai-security-panel/red-team/<TARGET>/`.
 
 ## Adding New Agents
 
@@ -106,8 +131,18 @@ name: my-agent
 description: One-line purpose
 executor: claude-sonnet-4-6
 advisor: claude-opus-4-7
+model: claude-sonnet-4-6
 integrity-hash-sha256: SHA256:<hash>
-tools: [Bash, Read, Write, ...]
+tools: Bash, Read, Write
+disallowedTools: Edit
+isolation: worktree
+color: blue
+maxTurns: 60
 skills: []
 ---
 ```
+
+- `model:` must match `executor:` — this is the field Claude Code actually uses
+- `tools:` is a comma-separated string (not a YAML list)
+- `disallowedTools:`, `isolation:`, `color:`, `maxTurns:` are optional
+- Compute `integrity-hash-sha256:` with the canonical command in `verify-all-agents.sh`
