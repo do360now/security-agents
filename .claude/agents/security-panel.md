@@ -1,7 +1,7 @@
 ---
 name: security-panel
 description: Orchestrates a three-stage AI security panel: requirements → risk analysis → solutions
-integrity-hash-sha256: SHA256:aab86f073c553d80afb77b5ba7a09b034857f04dc5f76036119cac0e3c938067
+integrity-hash-sha256: SHA256:36ddc8f6d2d324cb016a357ddddf974e272337c897db0f92acd64f4dd8f5a951
 executor: devstral-2:123b-cloud
 advisor: devstral-small-2:24b-cloud
 tools:
@@ -14,7 +14,8 @@ tools:
   - name: WebFetch
   - name: WebSearch
 skills:
-  - security-review
+  - name: security-review
+    version: "1.0.0"
 ---
 
 # Security Panel Orchestrator
@@ -177,6 +178,92 @@ All output goes to `/tmp/ai-security-panel/`:
 ## Pipeline Invocation via Agent Tool
 
 You can also invoke this panel using the Agent tool with subagent_type: "security-panel" and provide the threat intelligence and system description in the prompt. The orchestrator will handle all three stages.
+
+## Scenario Composition Pattern
+
+The pipeline uses a **scenario composition** pattern adapted from multi-agent systems. Each stage is a named action with structured inputs and outputs. This makes the pipeline explicit, auditable, and composable.
+
+### Action Schema
+
+```yaml
+- name: STAGE-1-REQUIREMENTS
+  message: >-
+    [prompt sent to model — carryover tokens injected at runtime]
+  carryover: Output file or text that becomes part of the next stage's input
+  summary_method: how the output is summarized for the next stage
+  agent: requirements-agent  # or model name
+```
+
+### Summary Methods
+
+| Method | Behavior |
+|--------|----------|
+| `last_msg` | Pass the raw last message from the agent |
+| `reflection_with_llm` | Ask the model to summarize key points from the conversation |
+| `file_content` | Read output from a specific file path |
+
+### Carryover Semantics
+
+The `carryover` field lets one stage's output flow into the next stage's prompt. In bash, this looks like:
+
+```bash
+# Inject prior output into current prompt
+STAGE_OUTPUT=$(cat /tmp/ai-security-panel/REQUIREMENTS.md)
+ollama run devstral-2:123b-cloud "$(cat <<EOF
+Previous output:
+$STAGE_OUTPUT
+
+[next stage task]
+EOF
+)"
+```
+
+### Pipeline Actions
+
+```yaml
+- name: STAGE-1-GENERATE-REQUIREMENTS
+  message: >-
+    Generate concrete security requirements from the threat intelligence below.
+    For each requirement: ID, description, threat addressed, target component,
+    severity, verification method. Write REQUIREMENTS.md to /tmp/ai-security-panel/.
+  carryover: null
+  summary_method: file_content
+  output_file: /tmp/ai-security-panel/REQUIREMENTS.md
+  agent: devstral-2:123b-cloud
+
+- name: STAGE-2-RISK-ANALYSIS
+  message: >-
+    Analyze the requirements for attack vectors and generate red-team tests.
+    Read /tmp/ai-security-panel/REQUIREMENTS.md for input.
+  carryover: "Read /tmp/ai-security-panel/REQUIREMENTS.md"
+  summary_method: file_content
+  output_file: /tmp/ai-security-panel/RISK_ANALYSIS.md
+  agent: glm-5.1:cloud
+
+- name: STAGE-3-DESIGN-SOLUTIONS
+  message: >-
+    Design defensive solutions that pass the red-team tests.
+    Read REQUIREMENTS.md, RISK_ANALYSIS.md, and RED_TEAM_TESTS.md from /tmp/ai-security-panel/.
+  carryover: >-
+    Read /tmp/ai-security-panel/REQUIREMENTS.md
+    Read /tmp/ai-security-panel/RISK_ANALYSIS.md
+    Read /tmp/ai-security-panel/RED_TEAM_TESTS.md
+  summary_method: file_content
+  output_file: /tmp/ai-security-panel/SOLUTIONS.md
+  agent: devstral-small-2:24b-cloud
+```
+
+### Working Directory Cleanup
+
+Between pipeline runs, clean the output directory to avoid stale artifact pollution:
+
+```bash
+# Clean before a new run
+rm -rf /tmp/ai-security-panel/
+mkdir -p /tmp/ai-security-panel/
+```
+
+This prevents carryover from a previous run from contaminating the current analysis.
 
 ## Guidelines
 - The pipeline is only as good as the specificity of the threat context — be precise about what the AI attacker can do

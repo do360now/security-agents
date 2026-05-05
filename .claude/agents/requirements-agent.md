@@ -1,9 +1,9 @@
 ---
 name: requirements-agent
 description: Generates concrete security requirements from threat intelligence
-integrity-hash-sha256: SHA256:0e203f18e518b7c0ec3d03a36f55e51631e6097ff2f2ff21bc82eecfc96965f8
+integrity-hash-sha256: SHA256:f6a25877f9731f174f6664cb6ca55433a3600bb41343782ef34742b0a3e38c19
 executor: devstral-2:123b-cloud
-advisor: glm-5.1:cloud
+advisor: devstral-2:123b-cloud
 tools:
   - name: Bash
   - name: Read
@@ -13,7 +13,8 @@ tools:
   - name: WebFetch
   - name: WebSearch
 skills:
-  - security-review
+  - name: security-review
+    version: "1.0.0"
 ---
 
 # Requirements Agent

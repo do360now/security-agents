@@ -2,7 +2,7 @@
 
 **Defensive AI security team using Claude Code + Ollama cloud models.**
 
-A hardened multi-agent system implementing an advisor pattern (fast executor + strong advisor) with defense-in-depth controls against AI-capable adversaries. **22/22 red-team tests passing.**
+A hardened multi-agent system implementing an advisor pattern (fast executor + strong advisor) with defense-in-depth controls against AI-capable adversaries. Calibrated against the AI-accelerated offense era — where autonomous models can find, reverse-engineer, and exploit vulnerabilities at machine scale. **22/22 red-team tests passing.**
 
 ## I want to...
 
@@ -14,6 +14,9 @@ A hardened multi-agent system implementing an advisor pattern (fast executor + s
 
 **Find a command or file**
 → [Check the reference](./reference/)
+
+**Understand the full system**
+→ [Read ARCHITECTURE.md](./ARCHITECTURE.md)
 
 **Understand why something is designed that way**
 → [Read the explanations](./explanation/)

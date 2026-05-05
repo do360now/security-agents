@@ -1,9 +1,12 @@
-.PHONY: red-team-test red-team-full red-team-summary
+.PHONY: red-team-test red-team-full red-team-summary e2e-test
 
 # =====================================================================
 # Red Team Test Suite
-# Run: make red-team-test
+# Run: make red-team-test (quick) or make red-team-full (verbose)
 # =====================================================================
+
+PASS = 0
+FAIL = 0
 
 # Quick pass/fail per test category
 red-team-test: red-team-summary
@@ -16,11 +19,20 @@ red-team-full:
 	@echo "RT-001: Agent Integrity (SHA-256 hash)"
 	@./verify-all-agents.sh 2>&1 || true
 	@echo ""
+	@echo "RT-001b: Skill Integrity (SHA-256 hash)"
+	@./verify-all-skills.sh 2>&1 || true
+	@echo ""
 	@echo "RT-002: Model Allowlist Enforcement"
 	@./validate-makefile-models.sh 2>&1 || true
 	@echo ""
 	@echo "RT-004: Advisor Output Sandbox"
 	@echo "1. Test step one" && echo "2. Test step two" | ./validate-advisor-output.sh 2>&1 || true
+	@echo ""
+	@echo "RT-005: Model Diversity (executor vs advisor)"
+	@bash -c 'for agent in .claude/agents/*.md; do name=$$(basename $$agent); exec_model=$$(grep "^executor:" $$agent 2>/dev/null | sed "s/executor: //"); adv_model=$$(grep "^advisor:" $$agent 2>/dev/null | sed "s/advisor: //"); if [ -n "$$exec_model" ] && [ -n "$$adv_model" ]; then if [ "$$exec_model" = "$$adv_model" ]; then echo "FAIL: $$name — same model: $$exec_model"; else echo "PASS: $$name — different models"; fi; fi; done'
+	@echo ""
+	@echo "RT-006: Git Repository"
+	@test -d .git && echo "PASS: Git repository exists" || echo "FAIL: No git repository"
 	@echo ""
 	@echo "RT-007: Config Drift Monitoring"
 	@./detect-config-drift.sh 2>&1 || true
@@ -30,15 +42,6 @@ red-team-full:
 	@echo ""
 	@echo "RT-010: Command Injection (inline scripts)"
 	@./pre-commit-inline-script-check.sh 2>&1 || true
-	@echo ""
-	@echo "RT-017: Inline Script Detection (CI/CD)"
-	@./pre-commit-inline-script-check.sh 2>&1 || true
-	@echo ""
-	@echo "RT-018: Skill Version Pinning"
-	@./verify-skill-versions.sh 2>&1 || true
-	@echo ""
-	@echo "RT-005: Model Diversity (executor vs advisor)"
-	@bash -c 'for agent in .claude/agents/*.md; do name=$$(basename $$agent); exec_model=$$(grep "^executor:" $$agent 2>/dev/null | sed "s/executor: //"); adv_model=$$(grep "^advisor:" $$agent 2>/dev/null | sed "s/advisor: //"); if [ -n "$$exec_model" ] && [ -n "$$adv_model" ]; then if [ "$$exec_model" = "$$adv_model" ]; then echo "FAIL: $$name — same model: $$exec_model"; else echo "PASS: $$name — different models"; fi; fi; done'
 	@echo ""
 	@echo "RT-012: Kill Switch Runbook"
 	@test -f SECURITY_INCIDENT_RUNBOOK.md && echo "PASS: SECURITY_INCIDENT_RUNBOOK.md exists" || echo "FAIL: No kill switch runbook"
@@ -52,8 +55,8 @@ red-team-full:
 	@echo "RT-016: Model Provenance Attestation"
 	@test -f MODELS_ALLOWLIST.md && grep -q "SHA256\|digest" MODELS_ALLOWLIST.md && echo "PASS: Model allowlist with digests exists" || echo "FAIL: No model provenance attestation"
 	@echo ""
-	@echo "RT-006: Git Repository"
-	@test -d .git && echo "PASS: Git repository exists" || echo "FAIL: No git repository"
+	@echo "RT-018: Skill Version Pinning"
+	@./verify-skill-versions.sh 2>&1 || true
 	@echo ""
 	@echo "RT-020: Agent Hijack Chain (git + hash + allowlist)"
 	@(test -d .git && test -f MODELS_ALLOWLIST.md && grep -q "integrity-hash-sha256" .claude/agents/*.md) && echo "PASS: All three controls present" || echo "FAIL: Missing hijack mitigations"
@@ -66,12 +69,10 @@ red-team-full:
 
 # Compact single-line summary (default target output)
 red-team-summary:
-	@echo "========================================"
-	@echo "RED TEAM TEST SUITE — Quick Summary"
-	@echo "========================================"
 	@FAIL=0; \
 	PASS=0; \
 	./verify-all-agents.sh >/dev/null 2>&1 && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
+	./verify-all-skills.sh >/dev/null 2>&1 && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
 	./validate-makefile-models.sh >/dev/null 2>&1 && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
 	./pre-commit-inline-script-check.sh >/dev/null 2>&1 && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
 	./verify-skill-versions.sh >/dev/null 2>&1 && PASS=$$((PASS+1)) || FAIL=$$((FAIL+1)); \
@@ -90,3 +91,14 @@ start-minimax2.5:
 
 start-minimax2.7:
 	ollama launch claude --model minimax-m2.7:cloud
+
+# =====================================================================
+# E2E Skill Auto-Invoke Test
+# =====================================================================
+
+e2e-test:
+	@echo "Running E2E skill auto-invoke test..."
+	@./e2e-skill-auto-invoke.sh
+
+make start-wifi:
+	sudo modprobe b43
