@@ -1,21 +1,23 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:ollama.com)",
       "Skill(update-config)",
-      "Bash(domain:localhost,allowed-commands:[ollama,ps,df,free,uptime,journalctl,dmesg,systemctl,ss,grep,awk,sed,cat,head,tail,sort,uniq,wc,xargs,find,ls,mkdir,chmod,chown,rm,mv,cp,touch,test])",
+      "Bash(domain:localhost,allowed-commands:[claude,ps,df,free,uptime,journalctl,dmesg,systemctl,ss,grep,awk,sed,cat,head,tail,sort,uniq,wc,xargs,find,ls,mkdir,chmod,chown,rm,mv,cp,touch,test])",
       "Read",
       "Write",
       "Edit",
       "Grep",
       "Glob",
+      "Bash(claude -p --model claude-opus-4-7:*)",
+      "Bash(claude -p --model claude-sonnet-4-6:*)",
+      "Bash(claude -p --model claude-haiku-4-5:*)",
+      "Bash(claude --version)",
       "Bash(./validate-advisor-output.sh)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git log *)",
       "Bash(mkdir -p /tmp/ai-security-panel)",
       "Bash(cat)",
-      "Bash(timeout 180 ollama run devstral-2:123b-cloud)",
       "Bash(sed 's/\\\\x1b\\\\[[0-9;]*[a-zA-Z]//g; s/\\\\x1b[A//g; s/\\\\x1b\\\\[?.*[a-zA-Z]//g')",
       "Read(//tmp/**)",
       "Bash(openssl s_client -connect helloai.com:443 -tls1_2)",
@@ -23,8 +25,6 @@
       "Bash(nmap --script ssl-enum-ciphers -p 443 helloai.com)",
       "Bash(grep -v \"^$\")",
       "Bash(make red-team-full *)",
-      "Bash(ollama --version)",
-      "Bash(claude --version)",
       "Bash(./verify-all-agents.sh *)",
       "Bash(mkdir -p /home/cmc/git/security-agents/.claude/skills/threat-modeling)",
       "Bash(cp /home/cmc/git/SecuritySkills/skills/appsec/threat-modeling/SKILL.md /home/cmc/git/security-agents/.claude/skills/threat-modeling/SKILL.md)",
@@ -43,7 +43,6 @@
       "Bash(rm -rf /tmp/ai-security-panel/)",
       "Bash(mkdir -p /tmp/ai-security-panel/)",
       "Read(//home/cmc/git/HelloAiV2/**)",
-      "Bash(ollama run devstral-2:123b-cloud ' *)",
       "Bash(lspci -k)",
       "Bash(lsmod)",
       "Bash(rfkill list *)",
@@ -58,7 +57,13 @@
       "Bash(dmesg)",
       "Bash(modinfo brcmfmac *)",
       "Bash(modinfo b43 *)",
-      "Bash(sudo modprobe *)"
+      "Bash(sudo modprobe *)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:platform.claude.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "WebSearch",
+      "WebFetch(domain:newsletter.pragmaticengineer.com)",
+      "WebFetch(domain:web.stanford.edu)"
     ]
   }
 }

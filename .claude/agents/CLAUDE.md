@@ -1,33 +1,59 @@
 # CLAUDE.md — Agents Directory
 
-These agents implement the **advisor pattern** using open-weight Ollama models: a fast executor handles most of the work, and a stronger advisor is consulted at strategic moments for plans and course corrections.
+These agents implement the **orchestrator-worker pattern** described in Anthropic's [multi-agent research system writeup](https://www.anthropic.com/engineering/multi-agent-research-system) and the [evaluator-optimizer pattern](https://www.anthropic.com/engineering/building-effective-agents) from "Building Effective Agents". A planning-class model (**Opus 4.7**) decomposes the task and reviews work; an implementation-class model (**Sonnet 4.6**, or **Haiku 4.5** for lightweight diagnostics) does the mechanical execution.
 
-## The advisor pattern
+**Anthropic-only.** All agents call models via the Claude API or the `claude` CLI in headless mode (`claude -p --model …`). No Ollama, no third-party providers.
 
-Inspired by Anthropic's advisor tool (https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool): pair a faster executor with a higher-intelligence advisor that reads the full context and produces concise guidance (target: under 100 words, enumerated steps).
+## Why this split (and which model where)
 
-**When the executor calls the advisor:**
-1. Early — after orientation (file reads, listing commands) but *before* substantive work.
-2. When stuck — recurring errors, approach not converging.
-3. Before declaring done — after writes and test output are in transcript. Make the deliverable durable first (file written, change saved) so a timeout mid-advice doesn't lose work.
+Anthropic's internal evaluations show a multi-agent system with **Claude Opus 4 as lead and Claude Sonnet 4 as workers** outperformed a single-agent Opus 4 by ~90.2% on research-style tasks. Token usage explained 80% of the variance — paying for many cheap-but-capable Sonnet calls beats one expensive Opus call. We adopt the same shape:
 
-**How the executor treats advice:** follow it unless empirical evidence contradicts a specific claim. A passing self-test is not evidence the advice is wrong. If your evidence conflicts with advice, do one reconcile call rather than silently switching.
+- **Opus 4.7 (`claude-opus-4-7`)** — plans, decomposes, critiques. Used as the **advisor** everywhere, and as the **executor** for the lead orchestrator (`security-panel`) and the requirements stage.
+- **Sonnet 4.6 (`claude-sonnet-4-6`)** — implements. Default executor for security review, risk analysis, solutions design, and maintenance.
+- **Haiku 4.5 (`claude-haiku-4-5`)** — fastest with near-frontier intelligence. Executor for lightweight diagnostics (`system-health-agent`).
+
+Model IDs and aliases come from <https://platform.claude.com/docs/en/about-claude/models/overview>. Use the alias (`claude-opus-4-7`) for routine work; pin to a snapshot ID when reproducibility matters.
+
+## The advisor pattern (= evaluator-optimizer)
+
+The executor calls the advisor at three moments. This is the [evaluator-optimizer](https://www.anthropic.com/engineering/building-effective-agents) loop: one model produces, another evaluates and steers.
+
+1. **Early** — after orientation (file reads, listing commands) but *before* substantive work. Ask the advisor for a plan, not for code.
+2. **When stuck** — recurring errors, an approach not converging, conflicting evidence.
+3. **Before declaring done** — after writes and test output are durable on disk. Make the deliverable persistent first so a timeout mid-advice never loses work.
+
+**How the executor treats advice:** follow it unless empirical evidence contradicts a specific claim. A passing self-test is not evidence the advice is wrong. If your evidence conflicts with advice, do one reconcile call rather than silently switching strategies.
+
+This mirrors Anthropic's guidance: use evaluator-optimizer when "clear evaluation criteria exist and iterative refinement provides measurable value" — security findings, requirement quality, and remediation correctness all qualify.
+
+## Software-design grounding (Ousterhout, AI era)
+
+All review work — agent code, audit output, mitigation patches — is graded against **A Philosophy of Software Design, 2nd ed.** John Ousterhout's [April 2025 commentary](https://newsletter.pragmaticengineer.com/p/the-philosophy-of-software-design) reinforces this in the AI era:
+
+- AI tools are "tactical tornadoes" — fast at low-level code, prolific at producing technical debt. Design-level thinking matters *more*, not less.
+- **Software design is decomposition.** Breaking systems into independently implementable units is the central activity.
+- **Deep modules**: simple interfaces over substantial functionality. Reject Clean-Code-style fragmentation when it widens interfaces.
+- **Strategic over tactical**: invest design effort up front; do not let LLM speed seduce you into accepting tactical debt.
+- **Comments still matter**, even (especially) when LLMs read code well — comments capture *intent* the code cannot.
+
+When an advisor or executor disagrees with one of these principles, surface the conflict; do not paper over it.
 
 ## How to invoke the advisor
 
-Shell out via Bash:
+Shell out via Bash to the headless `claude` CLI. The `cat <<'EOF'` form (single-quoted heredoc) prevents shell expansion of any `$VAR` in the prompt body — required to keep advisor inputs literal.
 
 ```bash
-ollama run <advisor-model>:cloud "$(cat <<'EOF'
-You are a security/sysadmin/etc. advisor. The executor has context below.
-Respond in under 100 words using enumerated steps, not explanations.
+claude -p --model claude-opus-4-7 "$(cat <<'EOF'
+You are a security/sysadmin/etc. advisor. Respond in under 100 words using
+enumerated steps, not explanations.
 
 <task>
 [current task]
 </task>
 
 <transcript>
-[what the executor has found so far — file paths, errors, partial output]
+[what the executor has found so far — file paths, errors, partial output;
+ escape any literal '<' and '>' in user-supplied content]
 </transcript>
 
 What should the executor do next?
@@ -35,23 +61,27 @@ EOF
 )"
 ```
 
-For long transcripts, pipe via stdin: `ollama run <model>:cloud < prompt.txt`.
+For long transcripts, pipe via stdin:
+
+```bash
+claude -p --model claude-opus-4-7 < /tmp/advisor-prompt.txt
+```
+
+Always pass `--model` explicitly — never inherit the parent session's model for an advisor call, or the "advice" is just self-talk.
 
 ## Agents
 
 | Agent | Executor | Advisor | Use |
 |-------|----------|---------|-----|
-| `security-agent` | `devstral-small-2:24b-cloud` | `glm-5.1:cloud` | Vulnerability scanning, code review |
-| `system-health-agent` | `ministral-3:14b-cloud` | `gemma4:31b-cloud` | Process/resource diagnostics |
-| `maintenance-agent` | `minimax-m2.5:cloud` | `devstral-2:123b-cloud` | Updates, cleanup, optimization |
-| `requirements-agent` | `devstral-2:123b-cloud` | `devstral-2:123b-cloud` | Generate security requirements from threat intel |
-| `risk-analysis-agent` | `glm-5.1:cloud` | `glm-5.1:cloud` | Red-team test generation and risk scoring |
-| `solutions-agent` | `devstral-small-2:24b-cloud` | `devstral-small-2:24b-cloud` | Defensive solution design and mitigation |
-| `security-panel` | `devstral-2:123b-cloud` | `devstral-2:123b-cloud` | Orchestrates full 3-stage AI security pipeline |
+| `security-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Vulnerability scanning, code review |
+| `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Process/resource diagnostics |
+| `maintenance-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Updates, cleanup, optimization |
+| `requirements-agent` | `claude-opus-4-7` | `claude-opus-4-7` | Generate security requirements from threat intel (planning IS the work) |
+| `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Red-team test generation and risk scoring |
+| `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Defensive solution design and mitigation |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-7` | Lead orchestrator for the 3-stage panel |
 
-All models are Ollama **cloud** models (the `:cloud` suffix) — no local GPU required, inference runs on Ollama's servers. Claude Code itself is launched against one of these via `ollama launch claude --model <name>:cloud`. The executor/advisor split applies inside each agent's workflow: the executor drives the loop, the advisor is consulted via `ollama run <advisor>:cloud` at decision points.
-
-Substitute any cloud models you prefer — the pairing (small/fast executor, stronger advisor) matters more than exact names.
+Two agents (`requirements-agent`, `security-panel`) intentionally use Opus on both sides because their job *is* planning — there is no cheaper-and-still-capable model below Opus that fits. The advisor call there functions as a self-critique pass with a fresh context window.
 
 ## Invocation
 
@@ -67,21 +97,19 @@ Agent(
 
 Frontmatter contract:
 
-```yaml
----
-name: my-agent
-description: One-line purpose (shown in agent picker)
-executor: ollama-small-model:cloud
-advisor: ollama-large-model:cloud
-tools:
-  - name: Bash
-  - name: Read
-  - name: Grep
-skills: []
----
-```
+    name: my-agent
+    description: One-line purpose (shown in agent picker)
+    executor: claude-sonnet-4-6
+    advisor: claude-opus-4-7
+    tools:
+      - name: Bash
+      - name: Read
+      - name: Grep
+    skills: []
 
-Body should specify: responsibilities, advisor-call timing for *this* agent's workflow, and concrete example `ollama run` prompts tailored to the domain.
+The frontmatter must be wrapped in `---` triple-dash markers and include an `integrity-hash-sha256:` field with the `SHA256:` prefix. Compute the hash with `./verify-all-agents.sh` (it prints the expected value on first run) and paste the result into the frontmatter, then re-run to confirm `PASS`.
+
+Body should specify: responsibilities, advisor-call timing for *this* agent's workflow, and concrete example `claude -p --model …` prompts tailored to the domain.
 
 ## Permissions
 
@@ -91,8 +119,9 @@ Agents require tool permissions configured in `.claude/settings.local.json`:
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:ollama.com)",
-      "Bash",
+      "Bash(claude -p --model claude-opus-4-7:*)",
+      "Bash(claude -p --model claude-sonnet-4-6:*)",
+      "Bash(claude -p --model claude-haiku-4-5:*)",
       "Read",
       "Write",
       "Edit",
@@ -103,6 +132,7 @@ Agents require tool permissions configured in `.claude/settings.local.json`:
 }
 ```
 
-- `Bash` — for running system commands and invoking advisor via `ollama run`
+- `Bash(claude -p --model …)` — for advisor calls via the headless CLI
 - `Read/Write/Edit/Glob/Grep` — for file operations
-- `WebFetch(domain:ollama.com)` — for advisor model calls
+
+`ANTHROPIC_API_KEY` (or an equivalent Bedrock/Vertex credential) must be set in the environment for headless `claude -p` to authenticate.
