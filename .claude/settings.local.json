@@ -63,7 +63,12 @@
       "WebFetch(domain:www.anthropic.com)",
       "WebSearch",
       "WebFetch(domain:newsletter.pragmaticengineer.com)",
-      "WebFetch(domain:web.stanford.edu)"
+      "WebFetch(domain:web.stanford.edu)",
+      "WebFetch(domain:clementmachado.com)",
+      "Bash(grep -c '^## REQ-0__TRACKED_VAR__:' REQUIREMENTS.md)",
+      "Bash(grep -c '^## RISK-0__TRACKED_VAR__:' RISK_ANALYSIS.md)",
+      "Bash(grep -c '^## RT-0__TRACKED_VAR__:' RED_TEAM_TESTS.md)",
+      "Bash(grep -c '^## SOL-0__TRACKED_VAR__:' SOLUTIONS.md)"
     ]
   }
 }
