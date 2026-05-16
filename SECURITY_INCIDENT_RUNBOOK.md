@@ -158,3 +158,29 @@ pkill -9 -f "claude" && echo "All Claude agent processes killed"
 # Verify isolation
 ps aux | grep -E "(^|[^a-z])claude" | grep -v grep || echo "Verified isolated"
 ```
+
+---
+
+## Preemptive Kill-Switch Hook
+
+`.claude/hooks/kill-switch.sh` is wired as a `PreToolUse` hook via `.claude/settings.json`. It runs before every tool call in every agent session. If the file `AGENT_STOP` exists in the project root, the hook blocks the tool call with `exit 2` and prints the file's contents as the reason. If the file is empty, a default message is emitted.
+
+This is a preemptive control: it stops new actions from being started, as opposed to `pkill` alone, which kills mid-flight processes but cannot prevent the next tool call from being dispatched before the signal lands.
+
+**Blocking a running session (operator usage):**
+
+```bash
+# Block all subsequent tool calls — optionally record the reason
+echo "Suspected prompt injection in risk-analysis run" > AGENT_STOP
+
+# Combined fast-kill (recommended): blocks new actions AND kills running ones
+touch AGENT_STOP && pkill -9 -f claude
+```
+
+**Recovery — remove the stop file once the incident is contained:**
+
+```bash
+rm AGENT_STOP
+```
+
+The hook reads `$CLAUDE_PROJECT_DIR` (injected by Claude Code at runtime). If that variable is unset (e.g., direct shell testing), it falls back to two levels above the script's own directory.
