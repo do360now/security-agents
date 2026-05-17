@@ -39,7 +39,29 @@ panel/run_stage.sh risk-analysis /tmp/ai-security-panel/<TARGET>/ \
 panel/run_stage.sh solutions /tmp/ai-security-panel/<TARGET>/ \
   "Read RISK_ANALYSIS.json and REQUIREMENTS.json from /tmp/ai-security-panel/<TARGET>/. \
    Design SOL-* solutions and produce a 3-sprint roadmap."
+
+# Stage 4: evaluator (reads REQUIREMENTS.json, RISK_ANALYSIS.json, SOLUTIONS.json)
+panel/run_stage.sh evaluator /tmp/ai-security-panel/<TARGET>/ \
+  "Read REQUIREMENTS.json, RISK_ANALYSIS.json, and SOLUTIONS.json from /tmp/ai-security-panel/<TARGET>/. \
+   Grade SOLUTIONS coverage of REQUIREMENTS and addressed RISKs. Return PASS or NEEDS_WORK."
 ```
+
+**Stage 4 — Evaluation (defensive panel)**
+
+`panel/run_stage.sh evaluator` runs the fresh-context evaluator as a read-only Stage 4. It grades SOLUTIONS.json against REQUIREMENTS.json and RISK_ANALYSIS.json without having seen the build.
+
+- **PASS** means: solutions sufficiently cover requirements and risks (0 critical findings, 0 high findings, coverage_ratio >= 0.8). No action required — proceed to the cross-panel reconciliation or operator review.
+- **NEEDS_WORK** means: address the listed EVAL-* findings in EVALUATION.json. Typically re-run solutions (Stage 3) with the evaluator findings appended to the task prompt:
+
+  ```bash
+  panel/run_stage.sh solutions /tmp/ai-security-panel/<TARGET>/ \
+    "Read RISK_ANALYSIS.json and REQUIREMENTS.json from /tmp/ai-security-panel/<TARGET>/. \
+     Evaluator flagged: <paste EVAL-NNN descriptions>. Fix these gaps and produce updated SOL-* solutions."
+  ```
+
+  Then re-run Stage 4 to confirm the gaps are resolved.
+
+**Iteration limit**: maximum 2 evaluator passes per panel run. If the verdict is still NEEDS_WORK after 2 iterations, escalate to the operator — do not loop indefinitely. Document the remaining gaps in the panel report.
 
 ### How — offensive panel (four stages, Round 5)
 
@@ -62,9 +84,31 @@ panel/run_stage.sh solutions /tmp/ai-security-panel/red-team/<TARGET>/ \
   "Read RISK_ANALYSIS.json from /tmp/ai-security-panel/red-team/<TARGET>/. \
    Design SOL-* mitigations prioritized by attacker leverage, produce 3-sprint roadmap."
 
+# Stage 4: evaluator (reads ATTACK_SCENARIOS.json, RISK_ANALYSIS.json, SOLUTIONS.json)
+panel/run_stage.sh evaluator /tmp/ai-security-panel/red-team/<TARGET>/ \
+  "Read ATTACK_SCENARIOS.json, RISK_ANALYSIS.json, and SOLUTIONS.json from /tmp/ai-security-panel/red-team/<TARGET>/. \
+   Grade SOLUTIONS coverage of attack vectors and addressed RISKs. Return PASS or NEEDS_WORK."
+
 # Optional: cross-panel reconciliation with defensive panel outputs
 # (see Section 3 below)
 ```
+
+**Stage 4 — Evaluation (offensive panel)**
+
+`panel/run_stage.sh evaluator` runs in offensive mode when `ATTACK_SCENARIOS.json` is present (no `REQUIREMENTS.json`). It grades SOLUTIONS.json against ATTACK_SCENARIOS.json and RISK_ANALYSIS.json.
+
+- **PASS** means: solutions sufficiently cover attack vectors and risks (0 critical findings, 0 high findings, coverage_ratio >= 0.8). Proceed to cross-panel reconciliation.
+- **NEEDS_WORK** means: address the listed EVAL-* findings in EVALUATION.json. Re-run solutions (Stage 3) with the evaluator findings:
+
+  ```bash
+  panel/run_stage.sh solutions /tmp/ai-security-panel/red-team/<TARGET>/ \
+    "Read RISK_ANALYSIS.json from /tmp/ai-security-panel/red-team/<TARGET>/. \
+     Evaluator flagged: <paste EVAL-NNN descriptions>. Fix these gaps and produce updated SOL-* mitigations."
+  ```
+
+  Then re-run Stage 4 to confirm the gaps are resolved.
+
+**Iteration limit**: maximum 2 evaluator passes per panel run. If the verdict is still NEEDS_WORK after 2 iterations, escalate to the operator — do not loop indefinitely.
 
 ### Output contract
 
@@ -76,6 +120,7 @@ Each stage produces two artifacts in `<output_dir>`:
 | requirements      | `REQUIREMENTS.json`     | `REQUIREMENTS.md`      |
 | risk-analysis     | `RISK_ANALYSIS.json`    | `RISK_ANALYSIS.md`     |
 | solutions         | `SOLUTIONS.json`        | `SOLUTIONS.md`         |
+| evaluator         | `EVALUATION.json`       | `EVALUATION.md`        |
 
 The JSON is the validated artifact (schema-checked at the boundary). The Markdown is the
 human-readable view rendered automatically from the JSON.

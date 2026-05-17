@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Stage 4 Evaluator Output",
+  "description": "Schema for the evaluator stage output. Returns PASS/NEEDS_WORK verdict, structured findings tied to upstream artifact IDs, coverage metrics, and a mandatory honesty field listing what was not evaluated.",
+  "type": "object",
+  "required": ["verdict", "findings", "coverage", "unevaluated", "summary", "stage_summary"],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "NEEDS_WORK"],
+      "description": "PASS iff critical==0 AND high==0 AND coverage.reqs_covered/reqs_total >= 0.8 (or reqs_total==0 and risks coverage >= 0.8). Otherwise NEEDS_WORK."
+    },
+    "findings": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Structured findings tied to upstream artifact IDs. Empty array is valid for a PASS verdict.",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "severity", "referenced_artifact", "referenced_id", "description", "suggested_remediation"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^EVAL-[0-9]{3}$",
+            "description": "Finding identifier in the form EVAL-NNN (zero-padded three digits)"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["missing_coverage", "weak_solution", "schema_violation", "scope_drift", "residual_risk"],
+            "description": "Bounded category — exactly these five. Adding a new category requires a tracked commit to evaluator-agent.md."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"],
+            "description": "Severity of the finding. critical/high findings cause NEEDS_WORK verdict regardless of coverage."
+          },
+          "referenced_artifact": {
+            "type": "string",
+            "enum": ["REQUIREMENTS", "ATTACK_SCENARIOS", "RISK_ANALYSIS", "SOLUTIONS"],
+            "description": "Which upstream artifact this finding references"
+          },
+          "referenced_id": {
+            "type": "string",
+            "pattern": "^(REQ|ATK|RISK|RT|SOL)-[0-9]{3}$",
+            "description": "ID of the specific item in the referenced artifact (e.g., REQ-001, ATK-003, RISK-005)"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 30,
+            "description": "Concrete description of what is missing, weak, or misaligned"
+          },
+          "suggested_remediation": {
+            "type": "string",
+            "minLength": 20,
+            "description": "Actionable remediation suggestion for the solutions-agent on a re-run"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["reqs_covered", "reqs_total", "risks_addressed", "risks_total", "p0_sols_count"],
+      "additionalProperties": false,
+      "description": "Coverage metrics computed from upstream artifacts",
+      "properties": {
+        "reqs_covered": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of REQ-* (defensive) or ATK-* (offensive) items that have at least one SOL-* addressing them"
+        },
+        "reqs_total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total REQ-* or ATK-* items in the Stage 1 artifact"
+        },
+        "risks_addressed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of RISK-* items that have at least one SOL-* targeting them"
+        },
+        "risks_total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total RISK-* items in the Stage 2 artifact"
+        },
+        "p0_sols_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of P0-priority solutions in SOLUTIONS.json"
+        }
+      }
+    },
+    "unevaluated": {
+      "type": "string",
+      "minLength": 20,
+      "description": "Mandatory honesty field: name what was NOT evaluated (e.g., runtime behavior, third-party deps, side channels). Must be at least 20 characters — 'none' or 'n/a' are not acceptable."
+    },
+    "summary": {
+      "type": "object",
+      "required": ["findings_count_by_severity", "decision_rationale"],
+      "additionalProperties": false,
+      "description": "Aggregate summary used by the orchestrator to route to the next step",
+      "properties": {
+        "findings_count_by_severity": {
+          "type": "object",
+          "required": ["critical", "high", "medium", "low"],
+          "additionalProperties": false,
+          "description": "Count of findings at each severity level",
+          "properties": {
+            "critical": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of critical-severity findings"
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of high-severity findings"
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of medium-severity findings"
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of low-severity findings"
+            }
+          }
+        },
+        "decision_rationale": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "One-paragraph explanation of why the verdict is PASS or NEEDS_WORK, referencing specific finding IDs or coverage ratios"
+        }
+      }
+    },
+    "stage_summary": {
+      "type": "string",
+      "maxLength": 1200,
+      "description": "200-word-max summary covering verdict, key findings, coverage metrics, and residual gaps not captured as formal findings"
+    }
+  }
+}
