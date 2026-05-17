@@ -284,6 +284,34 @@ EOF
 
 ---
 
+### Oracle augmentation (optional)
+
+A deterministic SAST baseline can be produced before Stage 2 (risk-analysis)
+to focus Claude's attention on what a SAST tool would not catch. Requires
+`semgrep` (install via `pipx install semgrep`). When semgrep is not installed,
+the oracle scripts no-op gracefully and the panel runs unchanged — no opt-out
+required.
+
+```bash
+# Before Stage 2 — produce the baseline (or no-op stub if semgrep is missing)
+panel/oracles/semgrep_baseline.sh /path/to/code /tmp/ai-security-panel/<TARGET>/
+
+# Stage 2 — risk-analysis automatically consults SEMGREP_BASELINE.json if present
+panel/run_stage.sh risk-analysis /tmp/ai-security-panel/<TARGET>/ "<task>"
+
+# After Stage 2 — compute the disagreement set
+panel/oracles/diff_findings.sh /tmp/ai-security-panel/<TARGET>/
+```
+
+The diff lists three categories: `semgrep_only` (SAST flagged; Claude missed
+— review carefully), `claude_only` (Claude's value-add beyond SAST), and
+`both` (rough heuristic overlap by file path).
+
+Lifted from the "GCC as known-good oracle" pattern in Anthropic's *Building
+a C compiler with a team of parallel Claudes*.
+
+---
+
 ## 4. Use Plan Mode for Stage 0
 
 Plan Mode halts before any tool use and presents the dispatch plan for operator review. Use it before high-stakes runs.

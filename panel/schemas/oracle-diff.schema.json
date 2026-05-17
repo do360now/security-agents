@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Oracle Diff (Phase 5 disagreement set)",
+  "description": "Output of panel/oracles/diff_findings.sh — heuristic comparison of Claude RISKs against the SAST baseline. semgrep_only is the most operator-actionable list (SAST flagged it; Claude did not).",
+  "type": "object",
+  "required": ["oracle_available", "summary", "semgrep_only", "claude_only", "both"],
+  "additionalProperties": false,
+  "properties": {
+    "oracle_available": { "type": "boolean" },
+    "reason": { "type": "string" },
+    "summary": {
+      "type": "object",
+      "required": ["semgrep_only", "claude_only", "both"],
+      "additionalProperties": false,
+      "properties": {
+        "semgrep_only": { "type": "integer", "minimum": 0 },
+        "claude_only":  { "type": "integer", "minimum": 0 },
+        "both":         { "type": "integer", "minimum": 0 }
+      }
+    },
+    "semgrep_only": { "type": "array" },
+    "claude_only": { "type": "array" },
+    "both": { "type": "array" }
+  }
+}

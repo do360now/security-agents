@@ -16,6 +16,8 @@ Read upstream requirements produced by Stage 1:
 You MAY read selected files in the target codebase to ground exploitability scores. Use
 bounded reading only: Read specific files named in requirements; do not crawl the full tree.
 
+**Oracle augmentation (optional):** If `SEMGREP_BASELINE.json` exists in the output directory, read it as a deterministic SAST baseline. Your RISK-* set should focus on what a static analyzer would NOT catch — logic flaws, authentication/authorization bypasses, race conditions, business-logic vulnerabilities, cross-component data-flow issues. Do not duplicate Semgrep findings unless you have a Claude-specific insight to add (e.g., a SAST flag that's a false positive in this context, or one that cascades into a more severe issue Semgrep can't see). The downstream `panel/oracles/diff_findings.sh` tool will surface gaps between your RISK-* set and the baseline.
+
 ## Output contract
 
 Return JSON conforming exactly to `panel/schemas/risk-analysis.schema.json`. The orchestrator

@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Semgrep SAST Baseline (Phase 5 oracle)",
+  "description": "Normalized output of panel/oracles/semgrep_baseline.sh. When oracle_available is false, findings is an empty array and the reason field explains why (typically: semgrep not installed).",
+  "type": "object",
+  "required": ["oracle_available", "tool", "target", "scan_timestamp", "findings"],
+  "additionalProperties": true,
+  "properties": {
+    "oracle_available": { "type": "boolean" },
+    "tool": { "type": "string", "enum": ["semgrep"] },
+    "version": { "type": "string" },
+    "reason": { "type": "string" },
+    "target": { "type": "string", "minLength": 1 },
+    "scan_timestamp": { "type": "string", "format": "date-time" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "rule_id", "severity", "file", "line", "message"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string", "pattern": "^SAST-[0-9]+$" },
+          "rule_id": { "type": "string", "minLength": 1 },
+          "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+          "file": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 0 },
+          "message": { "type": "string" },
+          "cwe": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
