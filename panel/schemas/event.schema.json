@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Panel Event Record",
+  "description": "Schema for a single line in <output_dir>/events.jsonl. Each panel-run stage emits stage_started immediately after the output directory is created, and exactly one of stage_completed or stage_failed before exiting.",
+  "type": "object",
+  "required": ["id", "timestamp", "event_type", "stage", "output_dir", "task_prompt_hash"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "integer", "minimum": 1, "description": "Monotonic per-panel-run record id (1-based)" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "event_type": { "type": "string", "enum": ["stage_started", "stage_completed", "stage_failed"] },
+    "stage": { "type": "string", "enum": ["attack-scenarios", "requirements", "risk-analysis", "solutions", "evaluator"] },
+    "output_dir": { "type": "string", "minLength": 1 },
+    "task_prompt_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "sha256 of the task prompt; lets a resumer verify the prompt hasn't drifted" },
+    "artifact_path": { "type": "string", "description": "Present on stage_completed: path to the validated JSON artifact" },
+    "error_reason": { "type": "string", "description": "Present on stage_failed: short categorical reason token (e.g., claude_code_error)" }
+  }
+}

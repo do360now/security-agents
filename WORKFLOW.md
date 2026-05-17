@@ -121,6 +121,7 @@ Each stage produces two artifacts in `<output_dir>`:
 | risk-analysis     | `RISK_ANALYSIS.json`    | `RISK_ANALYSIS.md`     |
 | solutions         | `SOLUTIONS.json`        | `SOLUTIONS.md`         |
 | evaluator         | `EVALUATION.json`       | `EVALUATION.md`        |
+| (all stages)      | `events.jsonl`          | append-only per-run event log (used by `panel/wake.sh`) |
 
 The JSON is the validated artifact (schema-checked at the boundary). The Markdown is the
 human-readable view rendered automatically from the JSON.
@@ -128,6 +129,27 @@ human-readable view rendered automatically from the JSON.
 If a stage's output does not conform to its schema in `panel/schemas/`, `panel/run_stage.sh`
 exits non-zero and the orchestrator halts — implementing the action-schema pattern from
 GitHub's multi-agent engineering guidance.
+
+### Resuming a dropped panel run
+
+If a panel run is interrupted (session dies, machine reboot, escalation trip),
+each `panel/run_stage.sh` invocation has already written a `stage_started` event
+and an outcome event (`stage_completed` or `stage_failed`) to
+`<output_dir>/events.jsonl`. The resume inspector reads that log and recommends
+the next stage to run:
+
+    panel/wake.sh /tmp/ai-security-panel/<TARGET>/
+
+It prints the recommended command for the next incomplete stage but does NOT
+execute it — review the partial artifacts in the output directory first, then
+run the recommended command (or a refined version with an updated task prompt).
+
+Exit codes from `wake.sh`:
+
+- `0` — next stage identified, command printed
+- `1` — panel complete (all four stages have completed)
+- `2` — no events.jsonl found (nothing to resume; or wrong directory)
+- `3` — malformed events log
 
 ### Fallback
 

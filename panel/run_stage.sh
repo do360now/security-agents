@@ -111,9 +111,43 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------------------
+# Event log — append-only JSONL at <output_dir>/events.jsonl
+# Used by panel/wake.sh to resume dropped panel runs.
+# ---------------------------------------------------------------------------
+emit_event() {
+    local event_type="$1"   # stage_started | stage_completed | stage_failed
+    local extra_json="${2:-}"  # optional comma-prefixed JSON fields, e.g. ',"artifact_path":"..."'
+
+    local event_log="${OUTPUT_DIR}/events.jsonl"
+    mkdir -p "$OUTPUT_DIR"
+
+    local next_id=1
+    if [[ -f "$event_log" ]]; then
+        next_id=$(( $(wc -l < "$event_log") + 1 ))
+    fi
+
+    local ts
+    ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    # task_prompt_hash uses sha256sum of the task prompt
+    local prompt_hash
+    prompt_hash="$(printf '%s' "${TASK_PROMPT:-}" | sha256sum | cut -d' ' -f1)"
+
+    # Build the record. output_dir and stage are always present.
+    # Escape output_dir for JSON (it should not contain " or \ in practice but be safe).
+    local safe_dir="${OUTPUT_DIR//\\/\\\\}"
+    safe_dir="${safe_dir//\"/\\\"}"
+
+    printf '{"id":%d,"timestamp":"%s","event_type":"%s","stage":"%s","output_dir":"%s","task_prompt_hash":"%s"%s}\n' \
+        "$next_id" "$ts" "$event_type" "$STAGE" "$safe_dir" "$prompt_hash" "$extra_json" \
+        >> "$event_log"
+}
+
+# ---------------------------------------------------------------------------
 # Prepare output directory
 # ---------------------------------------------------------------------------
 mkdir -p "$OUTPUT_DIR"
+emit_event "stage_started"
 
 JSON_OUTPUT="${OUTPUT_DIR}/${ARTIFACT_BASE}.json"
 MD_OUTPUT="${OUTPUT_DIR}/${ARTIFACT_BASE}.md"
@@ -148,6 +182,7 @@ IS_ERROR="$(printf '%s' "$RAW_RESPONSE" | jq -r '.is_error // false')"
 if [[ "$IS_ERROR" == "true" ]]; then
     echo "ERROR: Claude Code reported an error for stage '${STAGE}':" >&2
     printf '%s' "$RAW_RESPONSE" | jq -r '.result // .error // "unknown error"' >&2
+    emit_event "stage_failed" ',"error_reason":"claude_code_error"'
     exit 2
 fi
 
@@ -162,6 +197,7 @@ if [[ -z "$STAGE_JSON" || "$STAGE_JSON" == "null" ]]; then
     echo "       The CLI rejected the schema or the model produced no validated output." >&2
     echo "       Raw response (truncated):" >&2
     printf '%s' "$RAW_RESPONSE" | jq -r '.result // "(no result field)"' >&2 | head -c 2000
+    emit_event "stage_failed" ',"error_reason":"no_structured_output"'
     exit 2
 fi
 
@@ -188,5 +224,6 @@ echo "Written: ${SUMMARY_OUTPUT}"
 "${SCRIPT_DIR}/render_markdown.sh" "${STAGE}" "${JSON_OUTPUT}" > "${MD_OUTPUT}"
 echo "Written: ${MD_OUTPUT}"
 
+emit_event "stage_completed" ",\"artifact_path\":\"${JSON_OUTPUT//\"/\\\"}\""
 echo "Stage '${STAGE}' complete."
 exit 0
