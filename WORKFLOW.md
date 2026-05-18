@@ -355,11 +355,24 @@ Stage 2 fans out automatically based on item count when the panel runs as the ma
 - 4-10 items: one `risk-analysis-agent` subagent per item, in parallel
 - >10 items: batched into groups of ~5, one subagent per batch
 
+**Why these numbers** (per Anthropic's *How we built our multi-agent research system*):
+3–5 concurrent subagents is the empirical sweet spot — the lead agent's coordination
+cost stays manageable and each subagent's context window stays focused on one item.
+Above 5 concurrent subagents, coordination overhead and duplicate-work risk grow
+faster than the parallelism benefit, which is why the >10 case batches rather than
+fanning out per-item.
+
 Each parallel subagent writes to:
 - `/tmp/ai-security-panel/parallel/risk-REQ-NNN.md` (security-panel)
 - `/tmp/ai-security-panel/red-team/parallel/risk-ATK-NNN.md` (red-team-panel)
 
 The orchestrator merges the per-item files into a single `RISK_ANALYSIS.md` and `RED_TEAM_TESTS.md`.
+
+**Token economics**: multi-agent panel runs use roughly 15× the tokens of single-agent
+chat (per Anthropic's research-system measurements; single-agent agentic runs use ~4×).
+A defensive panel on a moderately complex target typically spends 100K–500K tokens
+across the four stages plus parallel fan-out. Use `--max-turns` per agent and the
+Stage 4 evaluator's 2-pass iteration cap to bound runaway iteration in headless CI.
 
 **Requirement:** parallel fan-out only works when the panel is the main Claude Code session:
 

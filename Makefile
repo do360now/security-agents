@@ -94,6 +94,18 @@ red-team-full:
 	@echo ""
 
 # Compact single-line summary — includes all 10 new 2026 tests (RT-023 to RT-030)
+#
+# Reliability note: this target reports pass@1 — a single run's PASS/FAIL count.
+# For production-reliability claims, run N times and require pass^N (every run
+# succeeded). At N=10, pass@k may approach 100% while pass^k can fall toward 0
+# if any check is non-deterministic. Quick pass^10 estimate:
+#
+#     for i in $$(seq 1 10); do make red-team-summary; done | grep -c "0 FAIL"
+#
+# Per Anthropic's "Demystifying evals for AI agents": pass@k favors exploration,
+# pass^k measures reliability. The agent-integrity controls (verify-all-agents,
+# validate-makefile-models, integrity-hash-sha256) are deterministic and should
+# always hit pass^N = pass@1.
 red-team-summary:
 	@echo "========================================"
 	@echo "RED TEAM TEST SUITE — Quick Summary"

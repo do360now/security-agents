@@ -139,6 +139,17 @@ Body should specify: responsibilities, advisor-call timing for *this* agent's wo
 
 `WORKFLOW.md` (repo root) is the operator-facing how-to for panel runs, scheduling, and parallel fan-out.
 
+## Tool response sizing
+
+Tool outputs consume the agent's context window. Per Anthropic's *Writing effective tools for agents*:
+
+- **Cap large reads**: tools returning code, logs, or scan output should default to ~25K tokens (Claude Code's built-in `Read` cap). For larger files, use offset/limit parameters rather than returning the whole file in one call.
+- **Prefer high-leverage tools**: a single `get_threat_context(target)` returning a compiled summary beats three separate calls to `list_cves`, `list_known_exploits`, `list_iocs`.
+- **Pre-compute summaries**: don't make the agent aggregate statistics it could read pre-aggregated. The C-compiler experiment (*Building a C compiler with a team of parallel Claudes*) found agents waste hours running full test suites when a sampled summary would be sufficient.
+- **Sub-agent returns**: when a subagent finishes, its reply to the orchestrator should be 1,000–2,000 tokens (or less); the full artifact lives on disk in `/tmp/ai-security-panel/`. The `clu-agent` and `evaluator-agent` enforce ≤50-word returns as the tightest case.
+
+This project uses Claude Code's built-in `Read`/`Grep`/`Glob`, which respect the 25K cap automatically. When adding a custom tool via an agent's `tools:` frontmatter, follow the same defaults — and add an enum parameter (e.g., `format: "concise"|"detailed"`) for tools whose callers don't always need the full output.
+
 ## Permissions
 
 Agents require tool permissions configured in `.claude/settings.local.json`:
