@@ -18,3 +18,5 @@ target/
 dist/
 build/
 .next/
+.env*
+
