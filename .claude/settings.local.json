@@ -67,7 +67,8 @@
       "Bash(echo \"exit: $?\")",
       "Bash(bash -x validate-advisor-output.sh --self-test)",
       "Bash(bash *)",
-      "Bash(chmod 755 *)"
+      "Bash(chmod 755 *)",
+      "Bash(panel/run_stage.sh cross-panel *)"
     ]
   }
 }
