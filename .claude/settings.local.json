@@ -45,7 +45,29 @@
       "Bash(rm -f /tmp/ai-security-panel/smoke_round4/*)",
       "Bash(timeout 90 panel/run_stage.sh requirements /tmp/ai-security-panel/smoke_round4/ \"SMOKE TEST. Return JSON with 4 placeholder REQ entries: REQ-001 auth bypass critical, REQ-002 SQL injection critical, REQ-003 hardcoded secret high, REQ-004 missing TLS high. Each with required schema fields, brief description \\(50+ chars\\). Be terse. No advisor calls, no file reads.\")",
       "Bash(panel/render_markdown.sh requirements *)",
-      "Bash(sed -i \"s|printf '- |printf -- '- |g\" panel/render_markdown.sh)"
+      "Bash(sed -i \"s|printf '- |printf -- '- |g\" panel/render_markdown.sh)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:claude.com)",
+      "Bash(CLAUDE_PROJECT_DIR=/home/cmc/git/security-agents bash .claude/hooks/kill-switch.sh)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(CLAUDE_PROJECT_DIR=/home/cmc/git/security-agents bash .claude/hooks/steer.sh)",
+      "Bash(rm STEER.md)",
+      "Bash(CLAUDE_PROJECT_DIR=/home/cmc/git/security-agents bash .claude/hooks/commit-on-stop.sh)",
+      "Bash(git commit *)",
+      "Bash(awk -F: '{print $NF}')",
+      "Bash(panel/run_stage.sh)",
+      "Bash(panel/run_stage.sh evaluator *)",
+      "Bash(echo \"Exit code: $?\")",
+      "Bash(git *)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(bash -n validate-advisor-output.sh)",
+      "Bash(./validate-advisor-output.sh --self-test)",
+      "Bash(ADVISOR_STATE_LOG=/tmp/test-advisor-st.jsonl ./validate-advisor-output.sh)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(bash -x validate-advisor-output.sh --self-test)",
+      "Bash(bash *)",
+      "Bash(chmod 755 *)"
     ]
   }
 }
