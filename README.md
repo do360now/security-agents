@@ -47,32 +47,38 @@ Each `panel/run_stage.sh` call writes three durable artifacts: `<STAGE>.json` (s
 
 ## Architecture
 
-The system uses 11 specialized agents, each with two components:
+The system uses 12 specialized agents, each with two components:
 
 | Component | Description |
 |-----------|-------------|
 | **Executor** | Faster Claude tier (Haiku 4.5 or Sonnet 4.6) driving the agent's loop |
 | **Advisor** | Stronger Claude tier (Sonnet 4.6 / Opus 4.6 / Opus 4.7) consulted at decision points |
 
-Two orchestrators run three-stage pipelines that share Stage 2 and Stage 3:
+Two orchestrators run four-stage pipelines that share Stages 2, 3, and 4, plus an optional cross-panel reconciliation:
 
 **Security Panel** (defensive, starts from policy):
 ```
-Requirements Agent → Risk Analysis Agent → Solutions Agent
+Requirements Agent → Risk Analysis Agent → Solutions Agent → Evaluator Agent
                        outputs → /tmp/ai-security-panel/
 ```
 
-Stage 2 fans out one `risk-analysis-agent` subagent per REQ-* item (in parallel) when 4+ requirements exist and the panel runs as the main session. See `WORKFLOW.md` section 6.
+Stage 2 fans out one `risk-analysis-agent` subagent per REQ-* item (in parallel) when 4+ requirements exist and the panel runs as the main session. See `WORKFLOW.md` section 6. Stage 4 (`evaluator-agent`) runs in fresh context with no Write/Edit and returns `PASS`/`NEEDS_WORK` against the upstream artifacts; max 2 iterations per panel run.
 
 **Red Team Panel** (offensive, starts from adversary behavior):
 ```
-ARES Agent → Risk Analysis Agent → Solutions Agent
+ARES Agent → Risk Analysis Agent → Solutions Agent → Evaluator Agent
                        outputs → /tmp/ai-security-panel/red-team/
 ```
 
 Stage 2 fans out one `risk-analysis-agent` subagent per ATK-* item (in parallel) when 4+ scenarios exist and the panel runs as the main session.
 
-Both panels write durable artifacts to disk before each advisor call. Run both for high-stakes systems and reconcile the outputs in `CROSS_PANEL_REPORT.md`.
+**Cross-panel reconciliation** (run after both panels complete):
+```
+panel/run_stage.sh cross-panel <output_dir> "<task>"
+```
+Schema-validated reconciliation buckets the union of both panels' SOLUTIONS into `both_panels`, `defensive_only`, `offensive_only`, and `conflicts`, with an `agreement_ratio` (0–1) summarizing panel alignment.
+
+Both panels write durable artifacts to disk before each advisor call, plus a per-run `events.jsonl` so a dropped session can resume via `panel/wake.sh <output_dir>`.
 
 ### Advisor-pattern pipeline (Round 4/5, recommended)
 
@@ -88,16 +94,27 @@ Layout:
 panel/
 ├── run_stage.sh                 # The dispatcher
 ├── render_markdown.sh           # JSON → markdown renderer
+├── wake.sh                      # Resume inspector — reads events.jsonl, prints next stage
+├── oracles/
+│   ├── semgrep_baseline.sh      # Optional SAST baseline (no-ops if semgrep missing)
+│   └── diff_findings.sh         # Disagreement set: Claude RISK-* vs Semgrep findings
 ├── schemas/
 │   ├── attack-scenarios.schema.json
 │   ├── requirements.schema.json
 │   ├── risk-analysis.schema.json
-│   └── solutions.schema.json
+│   ├── solutions.schema.json
+│   ├── evaluator.schema.json
+│   ├── cross-panel.schema.json
+│   ├── event.schema.json
+│   ├── semgrep-baseline.schema.json
+│   └── oracle-diff.schema.json
 └── system-prompts/
     ├── attack-scenarios.md
     ├── requirements.md
     ├── risk-analysis.md
-    └── solutions.md
+    ├── solutions.md
+    ├── evaluator.md
+    └── cross-panel.md
 ```
 
 The legacy `subagent_type:` Agent-tool dispatch path is retained for one-off agent invocations (e.g. `Agent(subagent_type: "security-agent", ...)` for a single module audit) but is not recommended for multi-stage panels.
@@ -113,8 +130,9 @@ The legacy `subagent_type:` Agent-tool dispatch path is retained for one-off age
 | `requirements-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Generate requirements from threats |
 | `risk-analysis-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Risk analysis + red team tests |
 | `solutions-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Design mitigations |
-| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Defensive 3-stage pipeline (requirements → risk → solutions) |
-| `red-team-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Offensive 3-stage pipeline (ares → risk → solutions) |
+| `security-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Defensive 4-stage pipeline (requirements → risk → solutions → evaluator) |
+| `red-team-panel` | `claude-opus-4-7` | `claude-opus-4-6` | Offensive 4-stage pipeline (ares → risk → solutions → evaluator) |
+| `evaluator-agent` | `claude-sonnet-4-6` | `claude-opus-4-7` | Fresh-context Stage 4: grades SOLUTIONS against upstream artifacts, returns PASS/NEEDS_WORK |
 | `system-health-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | Monitor system health |
 | `maintenance-agent` | `claude-haiku-4-5` | `claude-sonnet-4-6` | System maintenance |
 

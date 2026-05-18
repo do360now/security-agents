@@ -8,19 +8,20 @@ This is a defensive AI security system using the **advisor pattern** with the Cl
 
 ## Architecture
 
-**11 agents** in `.claude/agents/*.md`, each with:
+**12 agents** in `.claude/agents/*.md`, each with:
 - `executor` (fast tier) + `advisor` (stronger tier) — both Anthropic-served Claude models
 - `integrity-hash-sha256` for agent integrity verification
 - Frontmatter contract for model selection
 
-Two 3-stage orchestrator panels share Stages 2 and 3:
+Two 4-stage orchestrator panels share Stages 2, 3, and 4, plus a cross-panel reconciliation stage:
 
-- **`security-panel`** (defensive) — `requirements-agent → risk-analysis-agent → solutions-agent`, writes to `/tmp/ai-security-panel/`
-- **`red-team-panel`** (offensive) — `ares-agent → risk-analysis-agent → solutions-agent`, writes to `/tmp/ai-security-panel/red-team/`
+- **`security-panel`** (defensive) — `requirements-agent → risk-analysis-agent → solutions-agent → evaluator-agent`, writes to `/tmp/ai-security-panel/`
+- **`red-team-panel`** (offensive) — `ares-agent → risk-analysis-agent → solutions-agent → evaluator-agent`, writes to `/tmp/ai-security-panel/red-team/`
+- **`cross-panel`** — schema-validated reconciliation of both panels' SOLUTIONS.json into `both_panels`, `defensive_only`, `offensive_only`, `conflicts` buckets with an `agreement_ratio`. Run via `panel/run_stage.sh cross-panel`.
 
-Run both for high-stakes systems; reconcile outputs in `CROSS_PANEL_REPORT.md`.
+Run both panels for high-stakes systems; reconcile via the cross-panel stage. Stage 4 (`evaluator-agent`) runs in fresh context with no Write/Edit and returns PASS/NEEDS_WORK; max 2 evaluator iterations per panel run.
 
-Stage 2 risk analysis fans out across REQ-*/ATK-* in parallel when invoked as the main session — see `WORKFLOW.md`.
+Stage 2 risk analysis fans out across REQ-*/ATK-* in parallel (3–5 sweet spot, batches above 10) when invoked as the main session — see `WORKFLOW.md`. Each panel-run writes a per-run `events.jsonl` so a dropped session can resume via `panel/wake.sh <output_dir>`.
 
 **Recommended dispatch path (Round 4/5, smoke-tested end-to-end)**: panel stages are run through `panel/run_stage.sh`, which wraps `claude -p` with `--append-system-prompt-file panel/system-prompts/<stage>.md`, `--output-format json --json-schema panel/schemas/<stage>.schema.json`, and `--allowedTools <stage-specific list>`. This preserves Claude Code's default system prompt (so Sonnet retains real tool-use grounding) and validates each stage's output at the CLI boundary. Round 5 extended this to the offensive panel via the `attack-scenarios` stage. The legacy `subagent_type:` Agent-tool dispatch path is retained for one-off agent invocations but specialized subagent dispatch lost tool-use grounding in our smoke tests — prefer `panel/run_stage.sh` for multi-stage panels. See `WORKFLOW.md` for full runbooks.
 

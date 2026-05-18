@@ -19,7 +19,7 @@ Round 5 extended this to the offensive panel via the `attack-scenarios` stage �
 runs through the same `panel/run_stage.sh` invocation as the three defensive stages. See
 the four-stage offensive sequence below.
 
-### How — defensive panel (three stages)
+### How — defensive panel (four stages)
 
 Each stage runs via `panel/run_stage.sh` with three flags enforcing the contract:
 
@@ -162,7 +162,7 @@ advisor-pattern `panel/run_stage.sh` invocations above.
 
 ## 1. Run a defensive security panel
 
-The security panel runs a three-stage pipeline: requirements → risk analysis → solutions.
+The security panel agent runs a three-stage interactive pipeline: requirements → risk analysis → solutions. The conceptual fourth stage (`evaluator`) and the cross-panel reconciliation are operator-driven steps run separately via `panel/run_stage.sh` — see "The advisor-pattern pipeline" section above for the schema-validated 4-stage flow.
 
 ```bash
 # Interactive session — panel manages all three stages
