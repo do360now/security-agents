@@ -121,6 +121,7 @@ Each stage produces two artifacts in `<output_dir>`:
 | risk-analysis     | `RISK_ANALYSIS.json`    | `RISK_ANALYSIS.md`     |
 | solutions         | `SOLUTIONS.json`        | `SOLUTIONS.md`         |
 | evaluator         | `EVALUATION.json`       | `EVALUATION.md`        |
+| cross-panel       | `CROSS_PANEL_REPORT.json` | `CROSS_PANEL_REPORT.md` |
 | (all stages)      | `events.jsonl`          | append-only per-run event log (used by `panel/wake.sh`) |
 
 The JSON is the validated artifact (schema-checked at the boundary). The Markdown is the
@@ -265,22 +266,32 @@ claude --agent security-panel
 
 # Run offensive panel
 claude --agent red-team-panel
-
-# Reconcile — invoke red-team-panel with cross-panel flag
-claude -p --agent red-team-panel "$(cat <<'EOF'
-Both panels have completed.
-Defensive artifacts: /tmp/ai-security-panel/SOLUTIONS.md
-Offensive artifacts: /tmp/ai-security-panel/red-team/SOLUTIONS.md
-
-Task: Produce CROSS_PANEL_REPORT.md at /tmp/ai-security-panel/red-team/CROSS_PANEL_REPORT.md
-covering:
-- Defenses identified by both panels (highest confidence)
-- Defenses only in the defensive panel (policy-driven)
-- Defenses only in the offensive panel (attacker-driven)
-- Conflicts (panels disagree on priority or approach)
-EOF
-)"
 ```
+
+### Reconcile
+
+`panel/run_stage.sh cross-panel` runs schema-validated reconciliation. It reads both
+panels' `SOLUTIONS.json`, buckets the union of defenses into `both_panels`,
+`defensive_only`, `offensive_only`, and `conflicts`, and produces a structured
+`CROSS_PANEL_REPORT.json` (+ `.md`).
+
+```bash
+TARGET="my-service"
+mkdir -p /tmp/ai-security-panel/cross-panel/${TARGET}
+
+panel/run_stage.sh cross-panel /tmp/ai-security-panel/cross-panel/${TARGET}/ \
+  "Reconcile defensive /tmp/ai-security-panel/${TARGET}/SOLUTIONS.json against \
+   offensive /tmp/ai-security-panel/red-team/${TARGET}/SOLUTIONS.json. \
+   Produce a structured cross-panel report with both/defensive_only/offensive_only/conflicts buckets."
+```
+
+**Priority consolidation rule**: for defenses in both panels, the consolidated
+priority is `max(defensive, offensive)` — offensive priority tends tighter because
+it's attacker-driven.
+
+**Agreement ratio** = `both_count / (both_count + defensive_only_count + offensive_only_count)`.
+High ratios (>0.6) indicate strong consensus; low ratios (<0.4) suggest the panels
+are operating with different threat models — investigate before acting.
 
 ---
 

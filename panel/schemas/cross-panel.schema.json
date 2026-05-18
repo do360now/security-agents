@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Cross-Panel Reconciliation Report",
+  "description": "Schema for the cross-panel reconciliation stage. Compares the defensive panel's SOLUTIONS.json against the offensive (red-team) panel's SOLUTIONS.json and buckets the items into both_panels (highest confidence), defensive_only (policy-driven), offensive_only (attacker-driven), and conflicts (panels disagree on priority or mechanism).",
+  "type": "object",
+  "required": ["both_panels", "defensive_only", "offensive_only", "conflicts", "summary", "unevaluated", "stage_summary"],
+  "additionalProperties": false,
+  "properties": {
+    "both_panels": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Defenses identified by both panels — highest confidence",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "description", "defensive_sol_ids", "offensive_sol_ids", "consolidated_priority"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^RECON-[0-9]{3}$" },
+          "title": { "type": "string", "minLength": 5, "maxLength": 120 },
+          "description": { "type": "string", "minLength": 30 },
+          "defensive_sol_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^SOL-[0-9]{3}$" }
+          },
+          "offensive_sol_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^SOL-[0-9]{3}$" }
+          },
+          "consolidated_priority": { "type": "string", "enum": ["P0", "P1", "P2"], "description": "Max of the two panel priorities (offensive typically tighter)" }
+        }
+      }
+    },
+    "defensive_only": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Defenses only in the defensive panel — typically policy-, compliance-, or regulation-driven",
+      "items": {
+        "type": "object",
+        "required": ["id", "defensive_sol_ids", "rationale", "promote_recommendation"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^RECON-[0-9]{3}$" },
+          "defensive_sol_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^SOL-[0-9]{3}$" }
+          },
+          "rationale": { "type": "string", "minLength": 20, "description": "Why this is only in defensive (e.g., regulatory requirement)" },
+          "promote_recommendation": { "type": "string", "enum": ["promote_to_offensive", "keep_defensive_only", "needs_review"] }
+        }
+      }
+    },
+    "offensive_only": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Defenses only in the offensive panel — typically attacker-specific countermeasures",
+      "items": {
+        "type": "object",
+        "required": ["id", "offensive_sol_ids", "attacker_leverage_rationale", "defensive_gap_recommendation"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^RECON-[0-9]{3}$" },
+          "offensive_sol_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^SOL-[0-9]{3}$" }
+          },
+          "attacker_leverage_rationale": { "type": "string", "minLength": 20, "description": "What attacker capability drives this defense" },
+          "defensive_gap_recommendation": { "type": "string", "minLength": 20, "description": "Whether and how defensive panel should add this" }
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "minItems": 0,
+      "description": "Panels disagree on priority, mechanism, or scope for the same defense",
+      "items": {
+        "type": "object",
+        "required": ["id", "topic", "defensive_position", "offensive_position", "recommended_resolution"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^CONFLICT-[0-9]{3}$" },
+          "topic": { "type": "string", "enum": ["priority", "mechanism", "scope", "coverage"] },
+          "defensive_position": { "type": "string", "minLength": 20 },
+          "offensive_position": { "type": "string", "minLength": 20 },
+          "recommended_resolution": { "type": "string", "minLength": 30 }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["both_count", "defensive_only_count", "offensive_only_count", "conflict_count", "agreement_ratio"],
+      "additionalProperties": false,
+      "properties": {
+        "both_count": { "type": "integer", "minimum": 0 },
+        "defensive_only_count": { "type": "integer", "minimum": 0 },
+        "offensive_only_count": { "type": "integer", "minimum": 0 },
+        "conflict_count": { "type": "integer", "minimum": 0 },
+        "agreement_ratio": { "type": "number", "minimum": 0, "maximum": 1, "description": "both_count / (both_count + defensive_only_count + offensive_only_count) — fraction of defenses found by both panels" }
+      }
+    },
+    "unevaluated": { "type": "string", "minLength": 20, "description": "Mandatory honesty field: what was NOT reconciled (e.g., differing severity scales, untraceable cross-cutting fixes)" },
+    "stage_summary": { "type": "string", "maxLength": 1200 }
+  }
+}

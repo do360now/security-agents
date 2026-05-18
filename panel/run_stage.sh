@@ -4,7 +4,7 @@
 # Usage:
 #   panel/run_stage.sh <stage> <output_dir> "<task_prompt>"
 #
-# <stage>        : attack-scenarios | requirements | risk-analysis | solutions | evaluator
+# <stage>        : attack-scenarios | requirements | risk-analysis | solutions | evaluator | cross-panel
 # <output_dir>   : absolute path to output directory, e.g. /tmp/ai-security-panel/<TARGET>/
 # <task_prompt>  : orchestrator-supplied task description passed as the user prompt
 #
@@ -38,7 +38,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # ---------------------------------------------------------------------------
 if [[ $# -lt 3 ]]; then
     echo "Usage: panel/run_stage.sh <stage> <output_dir> \"<task_prompt>\"" >&2
-    echo "  stage: attack-scenarios | requirements | risk-analysis | solutions | evaluator" >&2
+    echo "  stage: attack-scenarios | requirements | risk-analysis | solutions | evaluator | cross-panel" >&2
     exit 1
 fi
 
@@ -85,8 +85,15 @@ case "$STAGE" in
         # evaluator reads only — no Write, no WebFetch
         ALLOWED_TOOLS="Read,Bash,Grep,Glob"
         ;;
+    cross-panel)
+        SCHEMA_FILE="${REPO_ROOT}/panel/schemas/cross-panel.schema.json"
+        SYSPROMPT_FILE="${REPO_ROOT}/panel/system-prompts/cross-panel.md"
+        ARTIFACT_BASE="CROSS_PANEL_REPORT"
+        # cross-panel reads from two locations — needs Read, no Write
+        ALLOWED_TOOLS="Read,Bash,Grep,Glob"
+        ;;
     *)
-        echo "ERROR: Unknown stage '${STAGE}'. Must be: attack-scenarios | requirements | risk-analysis | solutions | evaluator" >&2
+        echo "ERROR: Unknown stage '${STAGE}'. Must be: attack-scenarios | requirements | risk-analysis | solutions | evaluator | cross-panel" >&2
         exit 1
         ;;
 esac
