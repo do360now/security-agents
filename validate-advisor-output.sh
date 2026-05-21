@@ -263,6 +263,11 @@ self_test() {
     TEST_STATE_LOG="$(mktemp -t advisor-validate-selftest.XXXXXX.jsonl)"
     local TEST_SCOPE_DIR
     TEST_SCOPE_DIR="$(mktemp -d -t advisor-validate-selftest.XXXXXX)"
+    # Add a .claude marker so validate_env_overrides accepts TEST_SCOPE_DIR as CLAUDE_PROJECT_DIR
+    mkdir -p "${TEST_SCOPE_DIR}/.claude"
+    # The state log must be under TEST_SCOPE_DIR (or /tmp/ai-security-panel/) for env validation to pass.
+    # Override TEST_STATE_LOG to be within the accepted scope.
+    TEST_STATE_LOG="${TEST_SCOPE_DIR}/advisor-validate-selftest.jsonl"
 
     # Helper: run a single test case
     # run_case <case_num> <description> <input> <expected_exit> <expected_tier>
@@ -389,6 +394,44 @@ self_test() {
     rm -f "$stop_file"
     rm -f "$shared_log"
 
+    # Cases 8-10: env-var override validation
+    printf '\n--- Cases 8-10: env-var override validation ---\n'
+
+    # Case 8: ADVISOR_STATE_LOG pointing to /dev/null
+    local exit8=0
+    printf '' | ADVISOR_STATE_LOG="/dev/null" CLAUDE_PROJECT_DIR="$TEST_SCOPE_DIR" \
+        "$SELF" 2>/dev/null || exit8=$?
+    local status8="PASS"
+    if [[ "$exit8" != "1" ]]; then
+        status8="FAIL"
+        all_pass=1
+    fi
+    printf 'Case 8  (ADVISOR_STATE_LOG=/dev/null -> env reject)  exit=%s(want 1) [%s]\n' \
+        "$exit8" "$status8"
+
+    # Case 9: CLAUDE_PROJECT_DIR set to /
+    local exit9=0
+    printf '' | CLAUDE_PROJECT_DIR="/" "$SELF" 2>/dev/null || exit9=$?
+    local status9="PASS"
+    if [[ "$exit9" != "1" ]]; then
+        status9="FAIL"
+        all_pass=1
+    fi
+    printf 'Case 9  (CLAUDE_PROJECT_DIR=/ -> env reject)         exit=%s(want 1) [%s]\n' \
+        "$exit9" "$status9"
+
+    # Case 10: ADVISOR_PATH_ALLOWLIST set to /
+    local exit10=0
+    printf '' | CLAUDE_PROJECT_DIR="$TEST_SCOPE_DIR" ADVISOR_PATH_ALLOWLIST="/" \
+        "$SELF" 2>/dev/null || exit10=$?
+    local status10="PASS"
+    if [[ "$exit10" != "1" ]]; then
+        status10="FAIL"
+        all_pass=1
+    fi
+    printf 'Case 10 (ADVISOR_PATH_ALLOWLIST=/ -> env reject)     exit=%s(want 1) [%s]\n' \
+        "$exit10" "$status10"
+
     # Final cleanup
     rm -rf "$TEST_STATE_LOG" "$TEST_SCOPE_DIR"
     # Also clean any leftover per-case logs
@@ -396,12 +439,88 @@ self_test() {
 
     printf '\n'
     if [[ $all_pass -eq 0 ]]; then
-        printf 'Result: 7/7 PASS\n\n'
+        printf 'Result: 10/10 PASS\n\n'
     else
         printf 'Result: SOME TESTS FAILED\n\n'
     fi
 
     return $all_pass
+}
+
+# ---------------------------------------------------------------------------
+# Env-var override validation
+# Called before tier 1 to reject dangerous environment variable configurations.
+# Exits 1 on rejection — does NOT count toward kill-switch DENY counter.
+# ---------------------------------------------------------------------------
+validate_env_overrides() {
+    # --- ADVISOR_STATE_LOG ---
+    if [[ -n "${ADVISOR_STATE_LOG+x}" ]]; then
+        local asl="${ADVISOR_STATE_LOG}"
+        if [[ "$asl" == "" ]]; then
+            printf 'ENV REJECT: advisor state log is empty\n' >&2
+            exit 1
+        fi
+        if [[ "$asl" =~ ^/dev/ ]]; then
+            printf 'ENV REJECT: advisor state log points to device node\n' >&2
+            exit 1
+        fi
+        # Resolve to absolute path
+        local asl_abs
+        asl_abs="$(cd "$(dirname "$asl")" 2>/dev/null && pwd)/$(basename "$asl")" || true
+        if [[ -z "$asl_abs" ]]; then
+            asl_abs="$asl"
+        fi
+        local allowed_asl=0
+        local cpd="${CLAUDE_PROJECT_DIR:-}"
+        if [[ -n "$cpd" && "$asl_abs" == "${cpd}/"* ]]; then
+            allowed_asl=1
+        fi
+        if [[ "$asl_abs" == "/tmp/ai-security-panel/"* ]]; then
+            allowed_asl=1
+        fi
+        if [[ $allowed_asl -eq 0 ]]; then
+            printf 'ENV REJECT: advisor state log path not under allowed directories: %s\n' "$asl_abs" >&2
+            exit 1
+        fi
+    fi
+
+    # --- CLAUDE_PROJECT_DIR ---
+    if [[ -n "${CLAUDE_PROJECT_DIR+x}" ]]; then
+        local cpd="${CLAUDE_PROJECT_DIR}"
+        if [[ "$cpd" == "" ]]; then
+            printf 'ENV REJECT: project dir is empty\n' >&2
+            exit 1
+        fi
+        if [[ "$cpd" == "/" ]]; then
+            printf 'ENV REJECT: project dir is root\n' >&2
+            exit 1
+        fi
+        if [[ ! -d "${cpd}/.git" && ! -d "${cpd}/.claude" ]]; then
+            printf 'ENV REJECT: project dir lacks .git or .claude marker\n' >&2
+            exit 1
+        fi
+    fi
+
+    # --- ADVISOR_PATH_ALLOWLIST ---
+    if [[ -n "${ADVISOR_PATH_ALLOWLIST+x}" ]]; then
+        local pal="${ADVISOR_PATH_ALLOWLIST}"
+        IFS=':' read -ra pal_entries <<< "$pal"
+        for entry in "${pal_entries[@]}"; do
+            [[ -z "$entry" ]] && continue
+            if [[ "$entry" == "/" ]]; then
+                printf 'ENV REJECT: ADVISOR_PATH_ALLOWLIST entry is root /\n' >&2
+                exit 1
+            fi
+            if [[ "${#entry}" -lt 4 ]]; then
+                printf 'ENV REJECT: ADVISOR_PATH_ALLOWLIST entry too short: %s\n' "$entry" >&2
+                exit 1
+            fi
+            if [[ "$entry" =~ ^/(dev|proc|sys)/ || "$entry" == "/dev" || "$entry" == "/proc" || "$entry" == "/sys" ]]; then
+                printf 'ENV REJECT: ADVISOR_PATH_ALLOWLIST entry is a system path: %s\n' "$entry" >&2
+                exit 1
+            fi
+        done
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -421,6 +540,9 @@ main() {
                 ;;
         esac
     fi
+
+    # Validate environment variable overrides before processing input
+    validate_env_overrides
 
     local INPUT
     INPUT=$(cat)

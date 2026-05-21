@@ -127,6 +127,19 @@ emit_event() {
 
     local event_log="${OUTPUT_DIR}/events.jsonl"
     mkdir -p "$OUTPUT_DIR"
+    chmod 700 "$OUTPUT_DIR" 2>/dev/null || true
+
+    # Ownership check: if the file exists, verify it is owned by the current UID.
+    if [[ -f "$event_log" ]]; then
+        local file_uid current_uid
+        file_uid="$(stat -c '%u' "$event_log")"
+        current_uid="$(id -u)"
+        if [[ "$file_uid" != "$current_uid" ]]; then
+            printf 'ERROR: events_jsonl_ownership_mismatch: %s is owned by uid %s but current uid is %s\n' \
+                "$event_log" "$file_uid" "$current_uid" >&2
+            exit 2
+        fi
+    fi
 
     local next_id=1
     if [[ -f "$event_log" ]]; then
@@ -148,6 +161,8 @@ emit_event() {
     printf '{"id":%d,"timestamp":"%s","event_type":"%s","stage":"%s","output_dir":"%s","task_prompt_hash":"%s"%s}\n' \
         "$next_id" "$ts" "$event_type" "$STAGE" "$safe_dir" "$prompt_hash" "$extra_json" \
         >> "$event_log"
+
+    chmod 600 "$event_log" 2>/dev/null || true
 }
 
 # ---------------------------------------------------------------------------
@@ -167,17 +182,50 @@ echo "MD output:   ${MD_OUTPUT}"
 echo "========================================"
 
 # ---------------------------------------------------------------------------
-# Build and run the claude -p invocation
+# Pre-flight integrity gate + flock
 # ---------------------------------------------------------------------------
-SCHEMA_CONTENT="$(cat "${SCHEMA_FILE}")"
+# Export emit_event so it is callable from within the subshell.
+export -f emit_event
+# Temp files to pass structured outputs out of the subshell.
+_RAW_RESPONSE_FILE="$(mktemp)"
+_SUBSHELL_EXIT_CODE=0
 
-RAW_RESPONSE="$(claude -p \
-    --append-system-prompt-file "${SYSPROMPT_FILE}" \
-    --output-format json \
-    --json-schema "${SCHEMA_CONTENT}" \
-    --allowedTools "${ALLOWED_TOOLS}" \
-    --model claude-sonnet-4-6 \
-    "${TASK_PROMPT}")"
+(
+    flock -x 200
+
+    # --- Pre-flight: agent integrity check ---
+    if ! "${REPO_ROOT}/verify-all-agents.sh" >/dev/null 2>&1; then
+        emit_event "stage_failed" ',"error_reason":"agent_integrity_check_failed"' || true
+        printf 'ERROR: Pre-flight failed: agent_integrity_check_failed\n' >&2
+        exit 2
+    fi
+
+    # --- Pre-flight: panel file integrity check ---
+    if ! "${REPO_ROOT}/panel/verify-panel-files.sh" >/dev/null 2>&1; then
+        emit_event "stage_failed" ',"error_reason":"panel_files_integrity_check_failed"' || true
+        printf 'ERROR: Pre-flight failed: panel_files_integrity_check_failed\n' >&2
+        exit 2
+    fi
+
+    # --- Build and run the claude -p invocation ---
+    local_schema_content="$(cat "${SCHEMA_FILE}")"
+
+    claude -p \
+        --append-system-prompt-file "${SYSPROMPT_FILE}" \
+        --output-format json \
+        --json-schema "${local_schema_content}" \
+        --allowedTools "${ALLOWED_TOOLS}" \
+        --model claude-sonnet-4-6 \
+        "${TASK_PROMPT}" > "${_RAW_RESPONSE_FILE}"
+
+) 200>"${REPO_ROOT}/.claude/agents/.lock" || _SUBSHELL_EXIT_CODE=$?
+
+if [[ $_SUBSHELL_EXIT_CODE -ne 0 ]]; then
+    exit $_SUBSHELL_EXIT_CODE
+fi
+
+RAW_RESPONSE="$(cat "${_RAW_RESPONSE_FILE}")"
+rm -f "${_RAW_RESPONSE_FILE}"
 
 # ---------------------------------------------------------------------------
 # Extract the result field from Claude Code's JSON envelope
@@ -224,6 +272,83 @@ echo "Written: ${JSON_OUTPUT}"
 SUMMARY_OUTPUT="${OUTPUT_DIR}/${ARTIFACT_BASE}_SUMMARY.txt"
 printf '%s\n' "${RESULT_SUMMARY:0:2000}" > "$SUMMARY_OUTPUT"
 echo "Written: ${SUMMARY_OUTPUT}"
+
+# ---------------------------------------------------------------------------
+# Stage summary severity affirmation check
+# Skipped for: solutions, evaluator, cross-panel
+# For requirements/attack-scenarios/risk-analysis: if max severity is critical
+# or high, the stage_summary must affirmatively mention it (not negate it).
+# ---------------------------------------------------------------------------
+case "$STAGE" in
+    solutions|evaluator|cross-panel)
+        # Skip severity check for these stages
+        ;;
+    requirements|attack-scenarios|risk-analysis)
+        # Determine the jq path to severity fields per stage
+        _SEV_JQ_PATH=""
+        case "$STAGE" in
+            requirements)    _SEV_JQ_PATH='[.requirements[]?.severity // empty]' ;;
+            attack-scenarios) _SEV_JQ_PATH='[.scenarios[]?.severity // empty]' ;;
+            risk-analysis)   _SEV_JQ_PATH='[.risks[]?.overall_rating // empty]' ;;
+        esac
+
+        # Compute the max severity (critical > high > medium > low)
+        _MAX_SEV="$(printf '%s' "$STAGE_JSON" | jq -r --arg path "$_SEV_JQ_PATH" '
+            '"$_SEV_JQ_PATH"' |
+            map(ascii_downcase) |
+            if any(. == "critical") then "critical"
+            elif any(. == "high") then "high"
+            elif any(. == "medium") then "medium"
+            elif any(. == "low") then "low"
+            else "none"
+            end
+        ' 2>/dev/null || printf 'none')"
+
+        if [[ "$_MAX_SEV" == "critical" || "$_MAX_SEV" == "high" ]]; then
+            _STAGE_SUMMARY="$(printf '%s' "$STAGE_JSON" | jq -r '.stage_summary // ""' 2>/dev/null || true)"
+            _SUMMARY_LOWER="$(printf '%s' "$_STAGE_SUMMARY" | tr '[:upper:]' '[:lower:]')"
+            _SEV_CHECK_FAIL=0
+
+            if [[ "$_MAX_SEV" == "critical" ]]; then
+                # For requirements and risk-analysis: must mention 'critical' AND must not negate it.
+                # For attack-scenarios: the summary describes attacker goals/chains, not defensive ratings
+                # (a legitimate ARES summary may say "zero high-severity findings" as the attacker's
+                # objective), so affirmative-presence is unsafe here — only the negation guard applies.
+                # RESIDUAL (ATK-006 / CONFLICT-004): a past-tense framing such as "all findings represent
+                # low-severity drift" evades the negation guard. Accepted; structural fix requires a
+                # machine-readable severity field on the artifact rather than prose matching.
+                if [[ "$STAGE" != "attack-scenarios" ]]; then
+                    if ! printf '%s' "$_SUMMARY_LOWER" | grep -qiE 'critical'; then
+                        _SEV_CHECK_FAIL=1
+                        echo "ERROR: stage_summary_severity_mismatch: max severity is 'critical' but stage_summary does not mention 'critical'" >&2
+                    fi
+                fi
+                # Negation guard applies to all stages
+                if [[ $_SEV_CHECK_FAIL -eq 0 ]]; then
+                    if printf '%s' "$_SUMMARY_LOWER" | grep -qiE 'no critical|zero critical|no high or critical|no critical findings|no critical issues'; then
+                        _SEV_CHECK_FAIL=1
+                        echo "ERROR: stage_summary_severity_mismatch: stage_summary negates critical severity (contains negation phrase)" >&2
+                    fi
+                fi
+            elif [[ "$_MAX_SEV" == "high" ]]; then
+                # Must contain 'high' as a whole word or in 'high-severity'
+                if ! printf '%s' "$_SUMMARY_LOWER" | grep -qiE '\bhigh\b|high-severity'; then
+                    _SEV_CHECK_FAIL=1
+                    echo "ERROR: stage_summary_severity_mismatch: max severity is 'high' but stage_summary does not mention 'high'" >&2
+                fi
+            fi
+
+            if [[ $_SEV_CHECK_FAIL -ne 0 ]]; then
+                # Write rejected artifact as sidecar for forensics
+                _REJECTED_OUTPUT="${OUTPUT_DIR}/${ARTIFACT_BASE}.rejected.json"
+                cp "$JSON_OUTPUT" "$_REJECTED_OUTPUT" 2>/dev/null || true
+                echo "Written (rejected sidecar): ${_REJECTED_OUTPUT}" >&2
+                emit_event "stage_failed" ',"error_reason":"stage_summary_severity_mismatch"'
+                exit 2
+            fi
+        fi
+        ;;
+esac
 
 # ---------------------------------------------------------------------------
 # Render markdown from JSON
