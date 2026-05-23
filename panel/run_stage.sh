@@ -62,6 +62,12 @@ TASK_PROMPT="$3"
 # is the stronger judge. See MODELS_ALLOWLIST.md for approved IDs.
 STAGE_MODEL="claude-sonnet-4-6"
 
+# Whether to prepend the shared safety preamble (panel/system-prompts/_safety-preamble.md)
+# to this stage's system prompt. Enabled for write-capable generative stages, where the
+# Mythos card §4.2.2.2 safety/honesty prompt measurably reduced reckless and reward-hacking
+# behavior. Read-only stages (evaluator, cross-panel) do not need it.
+PREPEND_SAFETY_PREAMBLE=0
+
 case "$STAGE" in
     attack-scenarios)
         SCHEMA_FILE="${REPO_ROOT}/panel/schemas/attack-scenarios.schema.json"
@@ -69,6 +75,7 @@ case "$STAGE" in
         ARTIFACT_BASE="ATTACK_SCENARIOS"
         # ARES may fetch CVE / threat intel context
         ALLOWED_TOOLS="Read,Write,Bash,Grep,Glob,WebFetch"
+        PREPEND_SAFETY_PREAMBLE=1
         ;;
     requirements)
         SCHEMA_FILE="${REPO_ROOT}/panel/schemas/requirements.schema.json"
@@ -90,6 +97,7 @@ case "$STAGE" in
         ARTIFACT_BASE="SOLUTIONS"
         # solutions reads local files only; no web tools needed
         ALLOWED_TOOLS="Read,Write,Bash,Grep,Glob"
+        PREPEND_SAFETY_PREAMBLE=1
         ;;
     evaluator)
         SCHEMA_FILE="${REPO_ROOT}/panel/schemas/evaluator.schema.json"
@@ -204,6 +212,9 @@ echo "========================================"
 export -f emit_event
 # Temp files to pass structured outputs out of the subshell.
 _RAW_RESPONSE_FILE="$(mktemp)"
+# Holds the safety-preamble + stage-prompt concatenation for write-capable stages.
+# Populated inside the subshell only when PREPEND_SAFETY_PREAMBLE=1; harmless if unused.
+_COMBINED_SYSPROMPT_FILE="$(mktemp)"
 _SUBSHELL_EXIT_CODE=0
 
 (
@@ -223,11 +234,26 @@ _SUBSHELL_EXIT_CODE=0
         exit 2
     fi
 
+    # --- Optionally prepend the shared safety preamble (write-capable stages) ---
+    # Done after the integrity gates so a tampered preamble is caught by
+    # verify-panel-files.sh above before its content can reach the model.
+    sysprompt_arg="${SYSPROMPT_FILE}"
+    if [[ "$PREPEND_SAFETY_PREAMBLE" == "1" ]]; then
+        safety_preamble="${REPO_ROOT}/panel/system-prompts/_safety-preamble.md"
+        if [[ ! -f "$safety_preamble" ]]; then
+            emit_event "stage_failed" ',"error_reason":"safety_preamble_missing"' || true
+            printf 'ERROR: Pre-flight failed: safety_preamble_missing\n' >&2
+            exit 2
+        fi
+        cat "$safety_preamble" "${SYSPROMPT_FILE}" > "${_COMBINED_SYSPROMPT_FILE}"
+        sysprompt_arg="${_COMBINED_SYSPROMPT_FILE}"
+    fi
+
     # --- Build and run the claude -p invocation ---
     local_schema_content="$(cat "${SCHEMA_FILE}")"
 
     claude -p \
-        --append-system-prompt-file "${SYSPROMPT_FILE}" \
+        --append-system-prompt-file "${sysprompt_arg}" \
         --output-format json \
         --json-schema "${local_schema_content}" \
         --allowedTools "${ALLOWED_TOOLS}" \
@@ -235,6 +261,9 @@ _SUBSHELL_EXIT_CODE=0
         "${TASK_PROMPT}" > "${_RAW_RESPONSE_FILE}"
 
 ) 200>"${REPO_ROOT}/.claude/agents/.lock" || _SUBSHELL_EXIT_CODE=$?
+
+# The combined system-prompt temp file is no longer needed after the run.
+rm -f "${_COMBINED_SYSPROMPT_FILE}"
 
 if [[ $_SUBSHELL_EXIT_CODE -ne 0 ]]; then
     exit $_SUBSHELL_EXIT_CODE
