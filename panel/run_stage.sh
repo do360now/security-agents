@@ -83,6 +83,7 @@ case "$STAGE" in
         ARTIFACT_BASE="REQUIREMENTS"
         # requirements may benefit from WebFetch for CVE lookups
         ALLOWED_TOOLS="Read,Write,Bash,Grep,Glob,WebFetch"
+        PREPEND_SAFETY_PREAMBLE=1
         ;;
     risk-analysis)
         SCHEMA_FILE="${REPO_ROOT}/panel/schemas/risk-analysis.schema.json"
@@ -90,6 +91,7 @@ case "$STAGE" in
         ARTIFACT_BASE="RISK_ANALYSIS"
         # risk-analysis reads local files only; no web tools needed
         ALLOWED_TOOLS="Read,Write,Bash,Grep,Glob"
+        PREPEND_SAFETY_PREAMBLE=1
         ;;
     solutions)
         SCHEMA_FILE="${REPO_ROOT}/panel/schemas/solutions.schema.json"
