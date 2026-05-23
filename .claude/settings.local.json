@@ -68,7 +68,13 @@
       "Bash(bash -x validate-advisor-output.sh --self-test)",
       "Bash(bash *)",
       "Bash(chmod 755 *)",
-      "Bash(panel/run_stage.sh cross-panel *)"
+      "Bash(panel/run_stage.sh cross-panel *)",
+      "Bash(./panel/verify-panel-files.sh --self-test)",
+      "Bash(./panel/verify-panel-files.sh)",
+      "Bash(panel/verify-panel-files.sh --update)",
+      "Bash(panel/verify-panel-files.sh)",
+      "Bash(panel/verify-panel-files.sh --self-test)",
+      "Bash(panel/check_evaluator_verdict.sh --self-test)"
     ]
   }
 }
