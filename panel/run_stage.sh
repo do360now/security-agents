@@ -396,6 +396,33 @@ case "$STAGE" in
 esac
 
 # ---------------------------------------------------------------------------
+# Evaluator PASS-gate grounding (deterministic verdict floor)
+# ---------------------------------------------------------------------------
+# The evaluator's PASS rule (critical==0 && high==0 && coverage>=0.8) is a
+# published, gameable metric: a reward-hacking or anchored grader can self-report
+# inflated coverage, or rubber-stamp PASS while its own findings say otherwise
+# (Mythos card §4.4.2 / §2.3.3.1 — faking compliance markers, padding to clear a
+# binary threshold). check_evaluator_verdict.sh recomputes the coverage floor
+# DETERMINISTICALLY from the actual artifacts and fails (exit 2) only when a PASS
+# verdict is contradicted by that floor. The check is asymmetric — a NEEDS_WORK
+# verdict is never blocked. See that script's header for the full contract.
+if [[ "$STAGE" == "evaluator" ]]; then
+    _GATE_RC=0
+    "${SCRIPT_DIR}/check_evaluator_verdict.sh" "${OUTPUT_DIR}" || _GATE_RC=$?
+    if [[ $_GATE_RC -ne 0 ]]; then
+        _REJECTED_OUTPUT="${OUTPUT_DIR}/${ARTIFACT_BASE}.rejected.json"
+        cp "$JSON_OUTPUT" "$_REJECTED_OUTPUT" 2>/dev/null || true
+        echo "Written (rejected sidecar): ${_REJECTED_OUTPUT}" >&2
+        if [[ $_GATE_RC -eq 2 ]]; then
+            emit_event "stage_failed" ',"error_reason":"evaluator_verdict_unsupported"'
+        else
+            emit_event "stage_failed" ',"error_reason":"evaluator_verdict_check_error"'
+        fi
+        exit 2
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Render markdown from JSON
 # ---------------------------------------------------------------------------
 "${SCRIPT_DIR}/render_markdown.sh" "${STAGE}" "${JSON_OUTPUT}" > "${MD_OUTPUT}"
