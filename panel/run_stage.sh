@@ -13,8 +13,12 @@
 #              --output-format json \
 #              --json-schema panel/schemas/<stage>.schema.json \
 #              --allowedTools <per-stage tool list> \
-#              --model claude-sonnet-4-6 \
+#              --model <per-stage model> \
 #              "<task_prompt>"
+#
+# Per-stage model: claude-sonnet-4-6 for all stages EXCEPT the evaluator, which
+# runs claude-opus-4-7 so it never grades output produced by its own model
+# (anti-self-preference — see STAGE_MODEL below).
 #
 # Output:
 #   <output_dir>/<ARTIFACT>.json  — validated JSON artifact
@@ -49,6 +53,15 @@ TASK_PROMPT="$3"
 # ---------------------------------------------------------------------------
 # Validate stage name and resolve file paths
 # ---------------------------------------------------------------------------
+# Default model for every stage. Individual stages may override STAGE_MODEL below.
+# The evaluator deliberately runs on a DIFFERENT model than the solutions-agent it
+# grades (claude-sonnet-4-6): a grader that shares the author's model exhibits
+# measurable self-preference (Claude Mythos Preview System Card §4.3.5 — Claude
+# graders rate Claude-authored transcripts more leniently, worst for same-model
+# pairings). Opus 4.7 also showed the lowest self-favoritism of tested models and
+# is the stronger judge. See MODELS_ALLOWLIST.md for approved IDs.
+STAGE_MODEL="claude-sonnet-4-6"
+
 case "$STAGE" in
     attack-scenarios)
         SCHEMA_FILE="${REPO_ROOT}/panel/schemas/attack-scenarios.schema.json"
@@ -84,6 +97,9 @@ case "$STAGE" in
         ARTIFACT_BASE="EVALUATION"
         # evaluator reads only — no Write, no WebFetch
         ALLOWED_TOOLS="Read,Bash,Grep,Glob"
+        # Cross-model grading: the evaluator must not run the same model as the
+        # solutions-agent whose output it grades (anti-self-preference, §4.3.5).
+        STAGE_MODEL="claude-opus-4-7"
         ;;
     cross-panel)
         SCHEMA_FILE="${REPO_ROOT}/panel/schemas/cross-panel.schema.json"
@@ -215,7 +231,7 @@ _SUBSHELL_EXIT_CODE=0
         --output-format json \
         --json-schema "${local_schema_content}" \
         --allowedTools "${ALLOWED_TOOLS}" \
-        --model claude-sonnet-4-6 \
+        --model "${STAGE_MODEL}" \
         "${TASK_PROMPT}" > "${_RAW_RESPONSE_FILE}"
 
 ) 200>"${REPO_ROOT}/.claude/agents/.lock" || _SUBSHELL_EXIT_CODE=$?
