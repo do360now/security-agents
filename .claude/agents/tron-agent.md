@@ -62,6 +62,7 @@ TRON owns **runtime signals** only. Tool-scope and frontmatter violations are ow
 4. **Live credential exposure** — any string matching a `credential_identifiers` pattern observed in command lines, transcripts, environment variable dumps, or world-readable files. (TRON owns *live* exposure. Hypothetical exposure paths in attack scenarios are owned by `ares-agent`.)
 5. **Repository tampering** — `git diff HEAD` shows changes to `.claude/agents/*.md`, settings files, verification scripts, or `tron-baseline-manifest.yaml` that weren't initiated by the User.
 6. **Outbound exfiltration shape** — persistent traffic to addresses outside `network.allowed_outbound_domains`.
+7. **Agentic-misuse command signals** — command lines, shell history, or transcript content matching any `command_signals` entry in the baseline manifest: `/proc/<pid>/mem` scraping, `gdb -p` / `dd if=/proc/` memory dumps, `--dangerously-skip-permissions` or auto-approved permission prompts, `base64 -d | sh` classifier evasion, and `git commit --no-verify` / force-push history cover-ups. These are agent-escalation and track-covering behaviors documented in the Mythos card (§4.5.3.1, §4.2.1.2, §4.5.4) — no longer hypothetical. Severity is the entry's declared severity. A signal here may implicate one of *our own* agents going off-scope, not only an external adversary.
 
 ## Partition with system-health-agent
 
@@ -97,6 +98,10 @@ ls -lt ~/.claude/projects/ 2>/dev/null | head -10
 # Repo tamper check
 git -C /home/cmc/git/security-agents diff --stat HEAD
 git -C /home/cmc/git/security-agents status --porcelain
+
+# Agentic-misuse command signals (see command_signals in the baseline manifest)
+grep -nE '/proc/[0-9]+/(mem|environ|maps)|gdb -p|dd if=/proc/|--dangerously-skip-permissions|base64 -d *\| *(sh|bash)|git commit .*--no-verify' \
+  ~/.bash_history 2>/dev/null | tail -20
 
 # Recent journal entries with security relevance
 journalctl --since "1 hour ago" --priority=warning --no-pager | tail -50

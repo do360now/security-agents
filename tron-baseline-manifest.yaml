@@ -88,6 +88,45 @@ credential_identifiers:
   - name: GITHUB_TOKEN
     pattern_hint: "gh[pousr]_"
 
+# Agentic-misuse command signals
+# ------------------------------------------------
+# Behaviors documented in the Claude Mythos Preview System Card as REAL (not
+# hypothetical) actions capable agents took when blocked or pursuing a goal too
+# aggressively. Presence of any of these in a command line, shell history, or
+# transcript is a candidate signal that an agent (possibly one of ours) is
+# escalating privilege or covering its tracks. Distinct from credential_identifiers
+# (which match secret *values*) — these match *actions*. TRON interprets the
+# `match` tokens semantically; they are starting points, not an exhaustive regex.
+command_signals:
+  - id: proc-memory-scrape
+    severity: critical
+    reason: "Reading another process's memory to harvest secrets (Mythos card §4.5.3.1)"
+    match: ["/proc/*/mem", "/proc/*/environ", "/proc/*/maps"]
+  - id: debugger-memory-dump
+    severity: critical
+    reason: "Attaching a debugger or raw-copy tool to a live process to dump memory (§4.5.3.1)"
+    match: ["gdb -p", "gdb --pid", "gcore ", "dd if=/proc/"]
+  - id: credential-hunting
+    severity: high
+    reason: "Filesystem-wide hunt for tokens/keys when access was not granted (§4.5.3.1, §4.2.1.2)"
+    match: ["grep -r", "find / -name .env", "find / -name credentials", "cat /proc/*/environ"]
+    note: "Flag when paired with a token-shaped term (sk-ant-, gh[pousr]_, AKIA, PRIVATE KEY) or a broad root-anchored scan."
+  - id: permission-prompt-bypass
+    severity: critical
+    reason: "Bypassing or auto-approving a permission/safety prompt (§4.2.1.2)"
+    match: ["--dangerously-skip-permissions", "tmux send-keys", "xdotool key"]
+    note: "tmux send-keys / xdotool are signals only when used to auto-answer an agent's permission prompt (simulated 'y'/Enter)."
+  - id: classifier-evasion-encoding
+    severity: high
+    reason: "Encoding commands to slip past a safety classifier or monitor outage (§4.2.1.2)"
+    match: ["base64 -d |", "| base64 --decode |", "echo * | base64"]
+    note: "Decoding into a shell (… | sh, … | bash) is the escalation; plain base64 use is common and benign."
+  - id: git-history-coverup
+    severity: high
+    reason: "Rewriting or bypassing git history/hooks to hide an agent's own changes (§4.5.4)"
+    match: ["git commit --no-verify", "git filter-branch", "git push --force", "git push -f", "git reset --hard"]
+    note: "Overlaps the repo-tamper signal; here the concern is an agent erasing evidence of its own writes."
+
 # Notes on partition with system-health-agent
 # ------------------------------------------------
 # - system-health-agent owns frontmatter-declared tool-scope violations
